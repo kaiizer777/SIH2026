@@ -1,0 +1,52 @@
+# Dependencies
+frontend/node_modules/
+node_modules/
+
+# Next.js Build & Cache
+frontend/.next/
+frontend/out/
+.next/
+
+# Python Virtual Environments
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+ENV/
+env/
+
+# Python Cache & Bytecode
+**/__pycache__/
+*.py[cod]
+*$py.class
+backend/.pytest_cache/
+.coverage
+htmlcov/
+
+# Local Environment Variables
+frontend/.env.local
+frontend/.env.*.local
+backend/.env
+.env
+.env.local
+!.env.example
+!.env*.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
