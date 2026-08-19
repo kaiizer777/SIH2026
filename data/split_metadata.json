@@ -1,0 +1,88 @@
+{
+  "full_dataset": {
+    "total_rows": 5696,
+    "unique_days": 356,
+    "start_date": "2025-08-22",
+    "end_date": "2026-08-12",
+    "class_counts": {
+      "safe": 3425,
+      "warning": 1423,
+      "evacuation": 848
+    },
+    "class_percentages": {
+      "safe": 60.13,
+      "warning": 24.98,
+      "evacuation": 14.89
+    }
+  },
+  "train_full": {
+    "total_rows": 4560,
+    "unique_days": 285,
+    "start_date": "2025-08-22",
+    "end_date": "2026-06-02",
+    "class_counts": {
+      "safe": 2791,
+      "warning": 1153,
+      "evacuation": 616
+    },
+    "class_percentages": {
+      "safe": 61.21,
+      "warning": 25.29,
+      "evacuation": 13.51
+    }
+  },
+  "test": {
+    "total_rows": 1136,
+    "unique_days": 71,
+    "start_date": "2026-06-03",
+    "end_date": "2026-08-12",
+    "class_counts": {
+      "safe": 634,
+      "warning": 270,
+      "evacuation": 232
+    },
+    "class_percentages": {
+      "safe": 55.81,
+      "warning": 23.77,
+      "evacuation": 20.42
+    }
+  },
+  "train_core": {
+    "total_rows": 3648,
+    "unique_days": 228,
+    "start_date": "2025-08-22",
+    "end_date": "2026-04-06",
+    "class_counts": {
+      "safe": 2221,
+      "warning": 925,
+      "evacuation": 502
+    },
+    "class_percentages": {
+      "safe": 60.88,
+      "warning": 25.36,
+      "evacuation": 13.76
+    }
+  },
+  "val": {
+    "total_rows": 912,
+    "unique_days": 57,
+    "start_date": "2026-04-07",
+    "end_date": "2026-06-02",
+    "class_counts": {
+      "safe": 570,
+      "warning": 228,
+      "evacuation": 114
+    },
+    "class_percentages": {
+      "safe": 62.5,
+      "warning": 25.0,
+      "evacuation": 12.5
+    }
+  },
+  "cutoffs": {
+    "test_cutoff_date": "2026-06-03",
+    "val_cutoff_date": "2026-04-07"
+  },
+  "minority_class_verified": true,
+  "evacuation_test_count": 232
+}

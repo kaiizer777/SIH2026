@@ -1,0 +1,27 @@
+{
+  "raw_counts": {
+    "safe": 2221,
+    "warning": 925,
+    "evacuation": 502
+  },
+  "raw_percentages": {
+    "safe": 60.88,
+    "warning": 25.36,
+    "evacuation": 13.76
+  },
+  "computed_class_weights": {
+    "safe": 0.5475011256190905,
+    "warning": 1.3145945945945945,
+    "evacuation": 2.4223107569721116
+  },
+  "effective_weighted_sums": {
+    "safe": 1216.0,
+    "warning": 1216.0,
+    "evacuation": 1216.0
+  },
+  "effective_weighted_percentages": {
+    "safe": 33.33,
+    "warning": 33.33,
+    "evacuation": 33.33
+  }
+}
