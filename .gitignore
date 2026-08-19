@@ -52,7 +52,5 @@ Thumbs.db
 *.swo
 
 # Internal Docs & Workflows
-CONTEXT.md
-CONTEXT.MD
-WORKFLOW.md
-WORKFLOW.MD
+docs/
+AGENTS.md

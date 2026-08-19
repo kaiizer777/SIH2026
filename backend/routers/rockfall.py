@@ -75,7 +75,7 @@ def generate_mock_reading_and_prediction(
     Generates a realistic (SensorReading, RiskPrediction) pair adhering strictly
     to the 60/25/15 target distribution and grounded SSR velocity thresholds.
     """
-    target_zone = zone_id or random.choice(["ZONE-A", "ZONE-B", "ZONE-C", "PIT-NORTH"])
+    target_zone = zone_id or random.choice([f"zone_{i:02d}" for i in range(1, 17)])
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # Weighted selection (Low 60%, Medium 25%, High 15%)
