@@ -7,6 +7,19 @@
 
 An end-to-end geotechnical surveillance and early-warning platform designed for open-pit mines. The system fuses multi-modal environmental, spatial, and sensor telemetry into physics-grounded machine learning models to forecast slope instability and trigger sub-minute evacuation alerts.
 
+## 📖 About The Project
+
+**SIH25071** is an AI/ML-powered geotechnical early-warning and slope stability surveillance platform tailored for open-pit / opencast mining operations (aligned with the **Ministry of Mines, Disaster Management** theme).
+
+In opencast mines (such as SECL Kusmunda, Korba Coalfield, Chhattisgarh), slope failure and bench rockfalls represent critical occupational hazards. While industrial **Slope Stability Radar (SSR)** systems deliver sub-millimeter displacement tracking, their high capital expenditure (~$250k–$500k/unit) and line-of-sight constraints leave peripheral and smaller-scale pits unmonitored. 
+
+This platform bridges that gap by fusing **distributed geotechnical sensor telemetry**, **satellite Earth observation**, and **meteorological data** into a unified, physics-grounded machine learning pipeline:
+
+* **🛰️ Multi-Modal Remote Sensing & Meteorology:** Extracts Copernicus GLO-30 Digital Elevation Models (DEM) for slope, aspect, and curvature profiling via Google Earth Engine (GEE); integrates Sentinel-1 SAR (C-band GRD) multi-temporal backscatter anomaly tracking ($\Delta\text{dB}$ surface disturbance proxy); streams Open-Meteo ERA5-calibrated precipitation data.
+* **⚡ Physics-Informed Geotechnical Telemetry:** Real-time surface displacement, pore water pressure, micro-seismic vibration, and strain gauges calibrated under the **Fukuzono (1985) Inverse Velocity Method** ($v \to \infty, 1/v \to 0$ precursor dynamics).
+* **🧠 Imbalance-Aware ML Engine:** Rigorously addresses heavy class imbalance (SMOTE / cost-sensitive loss), prioritizing minority-class precision, recall, and PR-AUC over raw accuracy. Models transition from Tree baselines (RandomForest / XGBoost) to Sequential Deep Learning (LSTM) and compile to **ONNX Runtime** for zero-latency, offline edge alerting at the pit.
+* **📊 Mission-Critical 3D GIS Dashboard:** Next.js 16 (React 19 + TypeScript + MapLibre GL) single-pane interface delivering 3D pit heatmaps, real-time WebSocket telemetry charts, and sub-minute evacuation dispatch logs.
+
 ---
 
 ## 📌 Problem & Physical Grounding
@@ -25,24 +38,24 @@ An end-to-end geotechnical surveillance and early-warning platform designed for 
 ## 🏗️ System Architecture
 
 ```
-[Geotechnical Sensors & InSAR / DEM / Rain API]
-                       │
-                       ▼
-            [FastAPI Stream & Ingestion]
-                       │
-       ┌───────────────┴───────────────┐
-       ▼                               ▼
-[ML Inference Engine]          [Edge Node (ONNX)]
- (RF/XGBoost + LSTM TimeSeries) (Local Siren / Offline Mode)
-       │                               │
-       └───────────────┬───────────────┘
-                       ▼
-          [Real-Time WebSocket Feed]
-                       ▼
-       [Next.js 16 Dashboard (MapLibre + Recharts)]
+[Geotechnical Sensors + Sentinel-1 SAR + GLO-30 DEM + Open-Meteo API]
+                               │
+                               ▼
+                  [FastAPI Stream & Ingestion]
+                               │
+               ┌───────────────┴───────────────┐
+               ▼                               ▼
+     [ML Inference Engine]           [Edge Node (ONNX)]
+ (RF/XGBoost + LSTM TimeSeries)    (Local Siren / Offline Mode)
+               │                               │
+               └───────────────┬───────────────┘
+                               ▼
+                   [Real-Time WebSocket Feed]
+                               ▼
+           [Next.js 16 Dashboard (MapLibre + Recharts)]
 ```
 
-* **Data Fusion:** Physics-informed synthetic sensor streams (displacement, pore pressure, micro-seismic, strain) calibrated against real-world datasets (Landslide4Sense, NASA GLC, Dorren et al., GSI/DGMS), fused with real DEM (Copernicus GLO-30/SRTM), InSAR surface deformation, and rainfall APIs.
+* **Data Fusion:** Physics-informed synthetic sensor streams (displacement, pore pressure, micro-seismic, strain) calibrated against real-world datasets (Landslide4Sense, NASA GLC, Dorren et al., GSI/DGMS), fused with real DEM (Copernicus GLO-30), Sentinel-1 SAR backscatter change detection, and rainfall telemetry.
 * **ML Pipeline:** Focuses heavily on **class imbalance** (SMOTE / cost-sensitive weighting) evaluating PR-AUC & minority F1-score. Models exportable to **ONNX Runtime** for local offline edge execution on low-power hardware.
 
 ---

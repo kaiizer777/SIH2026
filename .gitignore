@@ -52,5 +52,8 @@ Thumbs.db
 *.swo
 
 # Internal Docs & Workflows
-docs/
+docs/WORKFLOW.md
+docs/workflow.md
+WORKFLOW.md
+workflow.md
 AGENTS.md
