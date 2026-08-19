@@ -23,7 +23,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+try:
+    from backend.routers.rockfall import router as rockfall_router
+except ImportError:
+    from routers.rockfall import router as rockfall_router
+
 START_TIME = time.time()
+
+app.include_router(rockfall_router)
+
+
 
 
 @app.get("/")
