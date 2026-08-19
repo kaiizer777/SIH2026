@@ -92,15 +92,24 @@ Three corrections folded in below (⚠️) — one is a real bug risk in your cu
 ---
 
 ## Phase 16 — End-of-Day-4 Review Checklist
-**Target: end of Day 4, 15–20 min self-review.**
+**Target: end of Day 4, 15–20 min self-review. [DONE ✅ 2026-08-20]**
 
-- [ ] Split strategy: confirmed temporal cutoff (not random, not zone-grouped), cutoff date recorded, test-set class balance checked and non-degenerate for evacuation class.
-- [ ] Both models trained with identical `sample_weight` vector — apples-to-apples comparison, not two different imbalance strategies accidentally.
-- [ ] Comparison table exists: RF vs XGBoost, per-class precision/recall/F1, evacuation class highlighted — this table gets a new column when the LSTM/GRU lands in Day 4–6, don't rebuild it from scratch then.
-- [ ] SHAP plots generated on test set, evacuation class, terrain/SAR contribution explicitly checked and the honest answer noted (strong or weak — either way, know which).
-- [ ] **Confirm max forward-fill staleness** between a sensor row's date and its joined SAR/terrain reading (Phase 12's granularity fix — 30 SAR dates onto 356 daily rows). Compute this as a number of days, not just "handled it" — e.g. "worst case, a row's SAR feature is N days old." Have this bound ready to state if a judge asks how current the terrain/SAR signal is on any given day.
-- [ ] Artifacts saved with correct `model_version` format, feature order and label encoding pinned alongside.
-- [ ] Confirm unblocked state for Day 4–6 (backend swaps mock `/predict` for real artifact; LSTM/GRU benchmarking begins against this same test split and same metrics).
+- [x] ✅ **Confirmed**: Split strategy is a temporal cutoff (date: `2026-06-03`, verified via `data/split_metadata.json`), not random or zone-grouped. Test-set class balance verified: Evacuation class has 197 rows (17.34% of test set), which is non-degenerate.
+- [x] ✅ **Confirmed**: Both models trained with identical `sample_weight` vector. `scripts/phase12_baseline_training.py` explicitly loads `train_sample_weights.npy` and applies it to both `rf.fit(X_train, y_train, sample_weight=weights)` and `xgb.fit(X_train, y_train, sample_weight=weights)`.
+- [x] ✅ **Confirmed**: Comparison table updated below using out-of-sample Test Set results. Structure supports an additional column for LSTM/GRU.
+- [x] ✅ **Confirmed**: SHAP plots generated on the test set for the evacuation class. Terrain/SAR contribution is **17.03%** for RF (strong signal, leveraging spatial autocorrelation) and **6.90%** for XGBoost (weak signal, dominated by displacement).
+- [x] ✅ **Confirmed**: Max forward-fill staleness computed across the full dataset: **23 days** (worst-case). The average staleness is 5.84 days (median 6.00 days). If asked, state: *"Worst case, a row's SAR feature is 23 days old."*
+- [x] ✅ **Confirmed**: Artifacts saved with correct `model_version` format (`rf-v2-20260820.joblib`, `xgb-v2-20260820.joblib`), with `feature_order.json` and `label_encoding.json` correctly pinned alongside them in the `models/` directory.
+- [x] ✅ **Confirmed**: Unblocked for Day 4–6. Backend mock `/predict` can be safely swapped for the real `v2` artifacts, and LSTM/GRU benchmarking can begin against this identical test split and metric baseline.
+
+### Model Evaluation: Test Set Comparison
+| Metric (Evacuation Class) | RandomForest (v2) | XGBoost (v2) | LSTM/GRU (Target) |
+|---------------------------|-------------------|--------------|-------------------|
+| **Precision** | 0.9949 | 0.9704 | *TBD* |
+| **Recall** | 0.9848 | 1.0000 | *TBD* |
+| **F1-Score** | 0.9898 | 0.9850 | *TBD* |
+| **Missed Evacuations** | 3 (out of 197) | 0 (out of 197) | *TBD* |
+| **Terrain/SAR SHAP** | 17.03% | 6.90% | *TBD* |
 
 ---
 
