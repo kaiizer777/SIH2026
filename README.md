@@ -17,7 +17,7 @@ This platform bridges that gap by fusing **distributed geotechnical sensor telem
 
 * **🛰️ Multi-Modal Remote Sensing & Meteorology:** Extracts Copernicus GLO-30 Digital Elevation Models (DEM) for slope, aspect, and curvature profiling via Google Earth Engine (GEE); integrates Sentinel-1 SAR (C-band GRD) multi-temporal backscatter anomaly tracking ($\Delta\text{dB}$ surface disturbance proxy); streams Open-Meteo ERA5-calibrated precipitation data.
 * **⚡ Physics-Informed Geotechnical Telemetry:** Real-time surface displacement, pore water pressure, micro-seismic vibration, and strain gauges calibrated under the **Fukuzono (1985) Inverse Velocity Method** ($v \to \infty, 1/v \to 0$ precursor dynamics).
-* **🧠 Imbalance-Aware ML Engine:** Rigorously addresses heavy class imbalance (SMOTE / cost-sensitive loss), prioritizing minority-class precision, recall, and PR-AUC over raw accuracy. Models transition from Tree baselines (RandomForest / XGBoost) to Sequential Deep Learning (LSTM) and compile to **ONNX Runtime** for zero-latency, offline edge alerting at the pit.
+* **🧠 Imbalance-Aware ML Engine:** Rigorously addresses heavy class imbalance (SMOTE / cost-sensitive loss), prioritizing minority-class precision, recall, and PR-AUC over raw accuracy. Models transition from Tree baselines (RandomForest / XGBoost) to Sequential Deep Learning (GRU) and compile to **ONNX Runtime** for zero-latency, offline edge alerting at the pit.
 * **📊 Mission-Critical 3D GIS Dashboard:** Next.js 16 (React 19 + TypeScript + MapLibre GL) single-pane interface delivering 3D pit heatmaps, real-time WebSocket telemetry charts, and sub-minute evacuation dispatch logs.
 
 ---
@@ -46,7 +46,7 @@ This platform bridges that gap by fusing **distributed geotechnical sensor telem
                ┌───────────────┴───────────────┐
                ▼                               ▼
      [ML Inference Engine]           [Edge Node (ONNX)]
- (RF/XGBoost + LSTM TimeSeries)    (Local Siren / Offline Mode)
+ (RF/XGBoost + GRU TimeSeries)    (Local Siren / Offline Mode)
                │                               │
                └───────────────┬───────────────┘
                                ▼
@@ -67,7 +67,7 @@ This platform bridges that gap by fusing **distributed geotechnical sensor telem
 | **Frontend** | Next.js 16.3 (App Router, Turbopack), React 19, TypeScript 5.9, Tailwind CSS 4 |
 | **Mapping & Viz** | MapLibre GL + React-Map-GL (open-source 3D terrain), Recharts |
 | **Backend API** | FastAPI 0.141, Python 3.12, Uvicorn, WebSockets |
-| **ML & Inference** | Scikit-learn, XGBoost, PyTorch (LSTM), ONNX Runtime, SHAP |
+| **ML & Inference** | Scikit-learn, XGBoost, PyTorch (GRU), ONNX Runtime, SHAP |
 | **Deployment** | Vercel (Frontend) + Render (Backend) |
 
 ---

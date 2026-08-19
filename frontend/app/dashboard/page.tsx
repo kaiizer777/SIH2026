@@ -71,7 +71,7 @@ export default function DashboardPage() {
         <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
           <div className="text-xs text-slate-400 uppercase tracking-wider">Model Confidence</div>
           <div className="text-2xl font-bold text-sky-400 mt-1">94.8%</div>
-          <div className="text-xs text-sky-400/80 mt-1">Ensemble (LSTM + XGBoost)</div>
+          <div className="text-xs text-sky-400/80 mt-1">Ensemble (GRU + XGBoost)</div>
         </div>
       </div>
 

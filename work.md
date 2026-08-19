@@ -1,16 +1,15 @@
-
 # WORK.md — SIH25071 Day 4–6: Deep Learning + Real Backend Integration
 
-Research-verified Aug 20, 2026. Continues from WORK.md (Phases 10–16, DONE — RF/XGBoost v2 baseline locked, test-set evacuation F1 0.99 both models). Scope here: LSTM/GRU benchmark, swap mock backend for real models, wire live feed, Render deploy started early.
+Research-verified Aug 20, 2026. Continues from WORK.md (Phases 10–16, DONE — RF/XGBoost v2 baseline locked, test-set evacuation F1 0.99 both models). Scope here: GRU benchmark, swap mock backend for real models, wire live feed, Render deploy started early.
 
 Four corrections folded in below (⚠️) — verified against current docs, not memory.
 
 ---
 
-## Phase 17 — LSTM/GRU Sequence Framing (blocks all DL work) `[DONE ✅ 2026-08-21]`
+## Phase 17 — GRU Sequence Framing (blocks all DL work) `[DONE ✅ 2026-08-21]`
 **Target: first 45 min of Day 4.**
 
-Your RF/XGBoost baseline treats each row as an independent observation (correct for tree models, given Phase 10's temporal split). LSTM/GRU is different — it needs actual *sequences*. Reused Phase 12's `sar_forward_fill()` join logic exactly (verified identical max staleness: 23 days) rather than reimplementing it, so LSTM input features are byte-for-byte consistent with what RF/XGBoost trained on.
+Your RF/XGBoost baseline treats each row as an independent observation (correct for tree models, given Phase 10's temporal split). GRU is different — it needs actual *sequences*. Reused Phase 12's `sar_forward_fill()` join logic exactly (verified identical max staleness: 23 days) rather than reimplementing it, so GRU input features are byte-for-byte consistent with what RF/XGBoost trained on.
 
 - [x] **Window length: 14 days**, sequence of last 14 days per zone → predict `risk_level` of the window's **final (last) timestep** — deployment-realistic framing (a live feed gives you sensor history, you want today's risk).
 - [x] Sequences built **per zone**, sliding window, verified never crossing a zone boundary (grouped by `zone_id` before windowing).
@@ -20,16 +19,18 @@ Your RF/XGBoost baseline treats each row as an independent observation (correct 
   - **train: 3,440 sequences** (down from 4,560 train rows — train's own first 13 days per zone have no earlier split to borrow history from, so these are genuinely dropped, not a bug)
   - **val: 912 sequences** — matches Phase 10's val row count exactly (every val day gets a full window via train-borrowed history)
   - **test: 1,136 sequences** — matches Phase 10's test row count exactly, same reason
-  - Evacuation-class counts: **train 403, val 113, test 197** — all comfortably above the thin-class warning threshold (30), so LSTM's evacuation F1 can be treated as directly comparable to RF/XGBoost's row-level numbers.
+  - Evacuation-class counts: **train 403, val 113, test 197** — all comfortably above the thin-class warning threshold (30), so GRU's evacuation F1 can be treated as directly comparable to RF/XGBoost's row-level numbers.
 - [x] Feature set per timestep: same 10 features as RF/XGB (4 sensor + 6 terrain/SAR), order-matched to `models/feature_order.json`. Confirmed terrain features (`slope`/`aspect`/`curvature`) are constant within a zone's window (expected — static per zone) and SAR/rainfall features (`vv_backscatter`/`vh_backscatter`/`rainfall_mm`) step only when a new SAR acquisition date is crossed within the 30-date series (expected — not a bug if a window looks "flat" on these columns).
 - [x] Output saved: `data/sequences/{train,val,test}_sequences.npz` (X shape `(n, 14, 10)`, y shape `(n,)`), plus per-sequence metadata JSON and `data/sequences/manifest.json` recording window length, cutoffs, feature order, label encoding, and the history-boundary policy verbatim — this is the paper trail if asked how history/label boundaries were handled.
 - [x] Script: `scripts/phase17_sequence_builder.py` — reuses `sar_forward_fill()` verbatim from `phase12_baseline_training.py`, do not fork this join logic a second time.
 
-> **Note for Phase 18:** RF/XGBoost remain row-based on the original `train.csv`/`val.csv`/`test.csv` — Phase 17's sequence files are consumed **only** by the LSTM/GRU pipeline. No change to the existing tree-model artifacts or their SHAP numbers.
+> **Note for Phase 18:** RF/XGBoost remain row-based on the original `train.csv`/`val.csv`/`test.csv` — Phase 17's sequence files are consumed **only** by the GRU pipeline. No change to the existing tree-model artifacts or their SHAP numbers.
+>
+> **Architecture decision (2026-08-21, quality-first, research-verified):** GRU chosen over LSTM. At ~3,440 training sequences with a short 14-day window on physics-clean synthetic data, current benchmarks consistently favor GRU on small-dataset generalization — ~25% fewer parameters than LSTM means less overfitting risk with no accuracy cost, since LSTM's extra forget/output gating pays off mainly on long or noisy sequences, which this data doesn't have. See sources: IEEE Yelp LSTM/GRU comparison (GRU faster + better performance-cost ratio on smaller datasets), and 2026 GRU-vs-LSTM guidance (fewer parameters → less overfitting on small datasets, GRU as the default starting point when data is limited). **`README.md`'s "Sequential Deep Learning (LSTM)" line must be updated to GRU — do not ship a mismatch between the README and the actual model used.**
 
 ---
 
-## Phase 18 — LSTM/GRU Implementation
+## Phase 18 — GRU Implementation
 **Target: Day 4, 2–3 hrs.**
 
 ⚠️ **Correction — class weighting API is different from sklearn, don't reuse Phase 11's approach as-is.** PyTorch's `nn.CrossEntropyLoss` takes a `weight` tensor of per-class weights (length = num_classes), not a per-sample weight array like sklearn's `sample_weight`. Compute inverse-frequency class weights from **train split only** (same rule as Phase 11 — never from full dataset), convert to a `torch.tensor`, pass via `weight=` to the loss constructor:
@@ -49,24 +50,24 @@ Your RF/XGBoost baseline treats each row as an independent observation (correct 
   X_train_seq, y_train_seq = train_npz["X"], train_npz["y"]  # y_train_seq: (3440,) int labels 0/1/2
   class_weights = compute_class_weight('balanced', classes=np.array([0,1,2]), y=y_train_seq)
   ```
-  Computing weights against the wrong (row-level) label array won't error — it'll just silently produce a weight vector calibrated to a distribution the LSTM was never actually trained on. Double check `y_train_seq.shape[0] == 3440` before proceeding.
+  Computing weights against the wrong (row-level) label array won't error — it'll just silently produce a weight vector calibrated to a distribution the GRU was never actually trained on. Double check `y_train_seq.shape[0] == 3440` before proceeding.
 
 - [ ] Framework choice: if you already have PyTorch/TF installed and comfortable, use it — don't add a new dependency this close to demo for marginal benefit. If starting fresh, PyTorch has the more direct class-weight path shown above.
-- [ ] Architecture: start simple — single LSTM/GRU layer (64–128 hidden units) → dropout (0.2–0.3) → dense → softmax(3). This is a hackathon benchmark, not a research contribution; an over-engineered stack that overfits your ~3-4K sequences will score worse than the RF baseline and undermine the "progression" story.
+- [ ] Architecture: start simple — single **GRU** layer (64–128 hidden units, `nn.GRU` not `nn.LSTM`) → dropout (0.2–0.3) → dense → softmax(3). This is a hackathon benchmark, not a research contribution; an over-engineered stack that overfits your ~3-4K sequences will score worse than the RF baseline and undermine the "progression" story. GRU's fewer parameters vs LSTM (~25% less) is the deliberate choice here, not a shortcut — see Phase 17's architecture-decision note for the research basis.
 - [ ] Same train/val/test sequence sets from Phase 17. Use the val split for early stopping (patience 5–10 epochs on val loss), not the test set.
 - [ ] Reuse the class-weighted loss exactly as computed above. Do not additionally rebalance via oversampling — same rationale as Phase 11 (physically correlated channels), now compounded by sequence structure (oversampling a sequence duplicates a whole 14-day trajectory verbatim, which is an even worse leakage-adjacent risk than duplicating a single row).
-- [ ] Save the trained model (`.pt` or `.h5`) with a clear versioned filename matching your existing convention: `models/lstm-v1-20260821.pt` (adjust date).
+- [ ] Save the trained model (`.pt` or `.h5`) with a clear versioned filename matching your existing convention: `models/gru-v1-20260821.pt` (adjust date).
 
 ---
 
-## Phase 19 — LSTM/GRU Evaluation (same rules as Phase 13, no new rubric)
+## Phase 19 — GRU Evaluation (same rules as Phase 13, no new rubric)
 **Target: Day 4, 1 hr.**
 
-- [ ] Run the identical `classification_report` from Phase 13 on the LSTM/GRU test-set predictions. Per-class precision/recall/F1, evacuation class headlined — not accuracy. Reusing the same eval code from Phase 13/14 (parameterize on model instead of duplicating) keeps the RF/XGB/LSTM numbers directly comparable, which is the whole point of the comparison table.
+- [ ] Run the identical `classification_report` from Phase 13 on the GRU test-set predictions. Per-class precision/recall/F1, evacuation class headlined — not accuracy. Reusing the same eval code from Phase 13/14 (parameterize on model instead of duplicating) keeps the RF/XGB/GRU numbers directly comparable, which is the whole point of the comparison table.
 - [ ] Confusion matrix, same style as Phase 13 (evacuation row/column highlighted, raw counts not just percentages).
-- [ ] Fill in the `LSTM/GRU (Target)` column in the comparison table from WORK.md Phase 16 — this table is a pitch asset, keep it live, don't recreate it.
-- [ ] **Expected outcome, know this going in**: on a synthetic dataset this clean (RF/XGB already at 97-100% test accuracy, 0.99 evacuation F1), LSTM/GRU is very unlikely to beat the tree baseline — sequence models earn their keep on messier temporal dependencies than a physics-generated Fukuzono curve with 10 clean features. **That's fine and expected — do not manufacture a win.** The honest story for the pitch: *"Tree baselines already capture the strong physical signal in our synthetic data extremely well. LSTM/GRU is included to benchmark against the literature-standard model progression (RF/XGBoost → LSTM/GRU → hybrid ensemble) and to validate our architecture scales to a deep-learning approach when moving from synthetic to real noisy sensor data, where temporal dependencies would matter more."* This is a stronger, more defensible answer than an inflated LSTM number a judge might probe and find inconsistent with your SHAP/eval methodology elsewhere.
-- [ ] If LSTM/GRU does meaningfully underperform, do NOT quietly drop it from the deck — the comparison table with an honest "tree models win on this data, here's why" is more credible than showing only your best model.
+- [ ] Fill in the `LSTM/GRU (Target)` column in the comparison table from WORK.md Phase 16 with GRU's actual numbers — rename the column header from `LSTM/GRU (Target)` to `GRU` while filling it in. This table is a pitch asset, keep it live, don't recreate it.
+- [ ] **Expected outcome, know this going in**: on a synthetic dataset this clean (RF/XGB already at 97-100% test accuracy, 0.99 evacuation F1), GRU is very unlikely to beat the tree baseline — sequence models earn their keep on messier temporal dependencies than a physics-generated Fukuzono curve with 10 clean features. **That's fine and expected — do not manufacture a win.** The honest story for the pitch: *"Tree baselines already capture the strong physical signal in our synthetic data extremely well. GRU is included to benchmark against the literature-standard model progression (RF/XGBoost → LSTM/GRU → hybrid ensemble) and to validate our architecture scales to a deep-learning approach when moving from synthetic to real noisy sensor data, where temporal dependencies would matter more. We chose GRU over LSTM specifically for its stronger small-dataset generalization — fewer parameters, less overfitting risk, no accuracy trade-off at this data scale."* This is a stronger, more defensible answer than an inflated number a judge might probe and find inconsistent with your SHAP/eval methodology elsewhere.
+- [ ] If GRU does meaningfully underperform, do NOT quietly drop it from the deck — the comparison table with an honest "tree models win on this data, here's why" is more credible than showing only your best model.
 
 ---
 
@@ -145,22 +146,22 @@ async def predict(reading: SensorReading, request: Request):
 ## Phase 24 — End-of-Day-6 Review Checklist
 **Target: end of Day 6, 20–30 min self-review. Do not skip — this is your last checkpoint before Day 7's integration test in WORKFLOW.md.**
 
-- [ ] ✅ LSTM/GRU trained, evaluated with the same per-class precision/recall/F1 rubric as RF/XGBoost, comparison table (WORK.md Phase 16 table) fully filled in across all three models.
-- [ ] ✅ Honest LSTM/GRU narrative locked and rehearsed (Phase 19) — not inflated, ties back to the RF/XGB/LSTM/hybrid progression from CONTEXT.md's literature reference.
+- [ ] ✅ GRU trained, evaluated with the same per-class precision/recall/F1 rubric as RF/XGBoost, comparison table (WORK.md Phase 16 table) fully filled in across all three models.
+- [ ] ✅ Honest GRU narrative locked and rehearsed (Phase 19) — not inflated, ties back to the RF/XGB/LSTM-GRU/hybrid progression from CONTEXT.md's literature reference (CONTEXT.md's citation names the general RNN-family step "LSTM/GRU" — you implemented the GRU variant of it, which is a correct, literature-consistent choice, not a deviation).
 - [ ] ✅ Real `/predict` endpoint live locally, loading via `lifespan`, validated against Phase 15's known-good test-set predictions (Phase 20 smoke test passed).
 - [ ] ✅ Live feed (`/ws/feed`) broadcasting real generator output through the real model, alert-trigger logic confirmed to fire once per threshold-crossing, not per-tick (Phase 21).
 - [ ] ✅ Frontend re-pointed at real backend, `types.ts` drift from Phase 9 fixed, heatmap verified against real (not mock) prediction distribution (Phase 22).
 - [ ] ✅ Backend deployed and reachable at a live `.onrender.com` URL, tested from outside the dev machine, `$PORT`/`runtime.txt`/committed model artifacts all verified (Phase 23).
 - [ ] ✅ Confirm unblocked for Day 6-7's full integration test (WORKFLOW.md): real generator → real model → FastAPI → WebSocket → dashboard, end to end, zero mocks remaining anywhere in the loop.
-- [ ] Note anything **not** done here honestly — if LSTM/GRU or Render deploy slipped, WORKFLOW.md Day 6-7 explicitly says edge deployment is droppable-to-slide-only if core isn't solid; the same logic applies here: a fully working RF-only real backend beats a half-wired LSTM integration on demo day.
+- [ ] Note anything **not** done here honestly — if GRU or Render deploy slipped, WORKFLOW.md Day 6-7 explicitly says edge deployment is droppable-to-slide-only if core isn't solid; the same logic applies here: a fully working RF-only real backend beats a half-wired GRU integration on demo day.
 
 ---
 
 ## Notes for the pitch deck (carry forward)
-- Model progression story is now complete and honest end-to-end: RF/XGBoost baseline (near-perfect on synthetic data, terrain/SAR genuinely learned per SHAP) → LSTM/GRU benchmarked on identical split/metrics (included for architectural completeness and forward-compatibility with real noisy sensor data, not because it won). This is a *stronger* pitch than a single-model system — it shows deliberate methodology, not just "we trained a model."
+- Model progression story is now complete and honest end-to-end: RF/XGBoost baseline (near-perfect on synthetic data, terrain/SAR genuinely learned per SHAP) → GRU benchmarked on identical split/metrics (included for architectural completeness and forward-compatibility with real noisy sensor data, not because it won). This is a *stronger* pitch than a single-model system — it shows deliberate methodology, not just "we trained a model." If asked "why GRU and not LSTM," the answer is ready: fewer parameters, better generalization at this dataset size, verified against current literature — not a shortcut.
 - `lifespan`-based model loading with fail-fast startup is a small but real engineering-maturity signal if a technical judge inspects your repo — worth a one-line mention if the conversation goes there.
 - Cold-start mitigation (warm the Render instance pre-demo) is an operational detail, not a pitch talking point — just don't get caught by it live.
-- Class-weighted loss now applied consistently across all three model families (sklearn `sample_weight` for RF/XGB, `CrossEntropyLoss(weight=...)` for LSTM) — same underlying principle (inverse-frequency, train-split-only), correctly adapted per-framework. If asked "did you handle imbalance the same way for your deep learning model," the honest answer is "same principle, framework-appropriate implementation" — say that, don't claim identical code.
+- Class-weighted loss now applied consistently across all three model families (sklearn `sample_weight` for RF/XGB, `CrossEntropyLoss(weight=...)` for GRU) — same underlying principle (inverse-frequency, train-split-only), correctly adapted per-framework. If asked "did you handle imbalance the same way for your deep learning model," the honest answer is "same principle, framework-appropriate implementation" — say that, don't claim identical code.
 
 ---
 

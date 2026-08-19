@@ -82,7 +82,7 @@ Companion to CONTEXT.md. This is the execution plan. Follow the order — the co
 **Deep learning + edge**
 - LSTM/GRU on the time-series sensor data; optional CNN-LSTM if imagery/SAR backscatter raster features are folded in.
 - Benchmark against the RF/XGBoost baseline **using the same imbalance-aware metrics** — not a separately-defined eval. This comparison table is a core pitch asset.
-- Export to ONNX (chosen over TFLite — one format covers XGBoost + LSTM + CNN-LSTM, better ARM CPU perf) — needed only if edge deployment (Day 7-8) happens.
+- Export to ONNX (chosen over TFLite — one format covers XGBoost + GRU + CNN-LSTM, better ARM CPU perf) — needed only if edge deployment (Day 7-8) happens.
 
 **Backend**
 - Swap mock `/predict` for the real trained model (RF/XGBoost baseline first, upgrade to deep learning model if ready and better on the minority-class metrics).
