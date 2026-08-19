@@ -1,0 +1,29 @@
+{
+  "window_length": 14,
+  "feature_order": [
+    "displacement_mm_day",
+    "vibration",
+    "pore_pressure",
+    "strain",
+    "slope",
+    "aspect",
+    "curvature",
+    "vv_backscatter",
+    "vh_backscatter",
+    "rainfall_mm"
+  ],
+  "label_encoding": {
+    "safe": 0,
+    "warning": 1,
+    "evacuation": 2
+  },
+  "val_cutoff": "2026-04-07",
+  "test_cutoff": "2026-06-03",
+  "max_sar_staleness_days": 23,
+  "history_boundary_policy": "Windows may pull history from an earlier split (e.g. a val-target window reaching back into train dates) but NEVER from a later split. Label/split assignment always follows the target (last-timestep) date only.",
+  "counts": {
+    "train": 3440,
+    "val": 912,
+    "test": 1136
+  }
+}
