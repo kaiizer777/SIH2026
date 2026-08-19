@@ -1,0 +1,17 @@
+{
+  "mine_name": "Kusmunda Mine",
+  "operator": "SECL",
+  "state": "Chhattisgarh",
+  "mine_type": "coal",
+  "center": {
+    "lat": 22.3312,
+    "lon": 82.6679
+  },
+  "bounding_box": {
+    "min_lat": 22.3204,
+    "max_lat": 22.342,
+    "min_lon": 82.6476,
+    "max_lon": 82.6882
+  },
+  "notes": "Coordinates derived from OpenStreetMap way 136512819 (landuse=quarry) and satellite imagery cross-referenced for the SECL Kusmunda opencast pit extent in Korba, Chhattisgarh."
+}
