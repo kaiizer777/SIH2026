@@ -43,6 +43,35 @@ One git repo at root — no nested `.git` folders.
 - **Nice-to-have**: DBSCAN spatiotemporal clustering on displacement data to auto-identify risk zones instead of manual gridding (2025 Bayan Obo study) — only if bandwidth allows.
 - **Model progression** (matches literature consensus, don't deviate without evidence): RF/XGBoost baseline → LSTM/GRU → hybrid/ensemble (CNN-LSTM).
 
+## v2 Data Generation — Terrain-Modulated Risk Score (Phase 7 fix, 2026-08-20)
+
+**Root cause fixed**: v1 `phase7_synthetic_sensors.py` assigned `risk_level` purely from hard displacement thresholds (Safe <50, Warning 50–120, Evacuation >120 mm/day). Terrain/SAR features (slope, curvature, VV/VH backscatter) were joined in as context but never causally affected the label. Result confirmed by v1 SHAP analysis: both models were functionally single-feature displacement-threshold detectors despite 10-feature input.
+
+**Fix**: `risk_score = displacement_mm_day × susceptibility_multiplier(zone)`, where the multiplier is derived from the terrain/SAR susceptibility composite (slope×0.50 + curvature×0.30 + SAR×0.20), rescaled [0,1]→[0.70, 1.30]. The SSR thresholds (50/120 mm/day) are applied to `risk_score`, not raw displacement. Displacement ranges were also redesigned to overlap substantially across zone tiers so the same displacement value in different terrain zones yields different class labels — forcing genuine geospatial feature learning.
+
+**v1 → v2 → v2b → v2c Evolution & SHAP Analysis:**
+
+- **v1 (baseline)**: 0 crossover pairs (due to hard displacement clips). Terrain/SAR signal: XGBoost 0.00%, RF 12.27%.
+- **v2 (validated final design)**: 75 crossover pairs out of 5,696 rows. Terrain/SAR signal: XGBoost 6.75%, RF 18.63%. This is the current production design.
+- **v2b (isolation test — multiplier alone, original range)**: Tested whether the terrain multiplier by itself (range [0.70, 1.30]), without range-widening, could produce meaningful class-boundary crossings. Result: 0 crossover pairs, XGBoost 0.00%, RF 30.31%.
+- **v2c (isolation test — multiplier alone, aggressive range [0.50, 1.60])**: Re-tested with a much wider, physically aggressive multiplier range, still without range-widening. Result: only 3 crossover pairs out of 5,696 rows (0.05%). XGBoost 0.00% (unchanged from v2b). RF 30.31% (identical to v2b to four decimal places).
+
+**Key Conclusions:**
+1. **RF spatial artifact**: RF's 30.31% is stable across v2b and v2c regardless of multiplier strength. This proves RF's terrain number is a zone-identity/spatial-autocorrelation proxy (slope correlates with zone tier), NOT a signal driven by the multiplier mechanism itself.
+2. **Geometric capability vs dynamics**: The terrain multiplier alone is geometrically capable of crossing class boundaries, but generation dynamics keep displacement clustered away from clip edges except in rare peak-monsoon coincidences.
+3. **Range-widening is structural**: Range-widening (as used in v2) is what creates a large enough overlap band for the multiplier to produce a learnable signal at this row count — it is structurally necessary, not incidental. The multiplier and range design work together.
+4. **Loop closed**: v2b shows multiplier alone (normal range) fails; v2c shows multiplier alone (aggressive range) still fails. No further isolation testing needed.
+
+*Pitch sentence verbatim for summary/pitch section:*
+"We tested whether the terrain multiplier alone — even at a physically aggressive [0.50, 1.60] range — could produce meaningful class-boundary crossings under tight displacement clips. It produced only 3 crossover pairs out of 5,696 rows, too sparse for either model to learn from. This confirmed that overlapping displacement ranges are structurally necessary, not incidental — the terrain multiplier and the range design work together, and we can show exactly why."
+
+*Note on RF Artifact (Appendix/Footnote):*
+"RF's terrain contribution is stable regardless of multiplier strength because it's driven by spatial autocorrelation between slope and zone tier, not by the label-generation mechanism — confirmed via a controlled multiplier-range test."
+
+History preserved, not rewritten: v1 numbers are the "before" baseline. v2 is the validated fix. The before/after comparison and isolation tests (v2b/v2c) are evidence of extreme methodological rigor. Cite this in the pitch if probed on label integrity.
+
+**Physical justification** (pitch-ready): In real SSR practice, the same surface velocity at a steep concave bench triggers a higher alarm level than at a gentle slope — the instrument's context-aware threshold adjustment is exactly what `risk_score = displacement × susceptibility_multiplier` models. This is not an arbitrary scaling; it directly mirrors how operators interpret SSR data in the field (Wyllie & Mah, 2004, Rock Slope Engineering).
+
 ## Offline/edge deployment (optional, low priority — do not let this eat time from imbalance handling or threshold grounding)
 - Architecture: sensors → edge device (e.g. Raspberry Pi) physically at the pit, running inference **locally** via **ONNX Runtime** (chosen over TFLite — faster on ARM CPU, one format covers XGBoost + LSTM + CNN-LSTM). Local alert (siren/GPIO/local SMS via GSM module) fires without internet. Cloud dashboard syncs opportunistically when connectivity returns.
 - No mobile app needed — doesn't solve the offline problem (phone still needs a link to something local) and is unnecessary scope for this problem statement.

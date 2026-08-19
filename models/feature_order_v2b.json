@@ -1,0 +1,12 @@
+[
+  "displacement_mm_day",
+  "vibration",
+  "pore_pressure",
+  "strain",
+  "slope",
+  "aspect",
+  "curvature",
+  "vv_backscatter",
+  "vh_backscatter",
+  "rainfall_mm"
+]

@@ -5,14 +5,14 @@
     "start_date": "2025-08-22",
     "end_date": "2026-08-12",
     "class_counts": {
-      "safe": 3425,
-      "warning": 1423,
-      "evacuation": 848
+      "safe": 3475,
+      "warning": 1483,
+      "evacuation": 738
     },
     "class_percentages": {
-      "safe": 60.13,
-      "warning": 24.98,
-      "evacuation": 14.89
+      "safe": 61.01,
+      "warning": 26.04,
+      "evacuation": 12.96
     }
   },
   "train_full": {
@@ -21,14 +21,14 @@
     "start_date": "2025-08-22",
     "end_date": "2026-06-02",
     "class_counts": {
-      "safe": 2791,
-      "warning": 1153,
-      "evacuation": 616
+      "safe": 2856,
+      "warning": 1163,
+      "evacuation": 541
     },
     "class_percentages": {
-      "safe": 61.21,
-      "warning": 25.29,
-      "evacuation": 13.51
+      "safe": 62.63,
+      "warning": 25.5,
+      "evacuation": 11.86
     }
   },
   "test": {
@@ -37,14 +37,14 @@
     "start_date": "2026-06-03",
     "end_date": "2026-08-12",
     "class_counts": {
-      "safe": 634,
-      "warning": 270,
-      "evacuation": 232
+      "safe": 619,
+      "warning": 320,
+      "evacuation": 197
     },
     "class_percentages": {
-      "safe": 55.81,
-      "warning": 23.77,
-      "evacuation": 20.42
+      "safe": 54.49,
+      "warning": 28.17,
+      "evacuation": 17.34
     }
   },
   "train_core": {
@@ -53,14 +53,14 @@
     "start_date": "2025-08-22",
     "end_date": "2026-04-06",
     "class_counts": {
-      "safe": 2221,
-      "warning": 925,
-      "evacuation": 502
+      "safe": 2276,
+      "warning": 944,
+      "evacuation": 428
     },
     "class_percentages": {
-      "safe": 60.88,
-      "warning": 25.36,
-      "evacuation": 13.76
+      "safe": 62.39,
+      "warning": 25.88,
+      "evacuation": 11.73
     }
   },
   "val": {
@@ -69,14 +69,14 @@
     "start_date": "2026-04-07",
     "end_date": "2026-06-02",
     "class_counts": {
-      "safe": 570,
-      "warning": 228,
-      "evacuation": 114
+      "safe": 580,
+      "warning": 219,
+      "evacuation": 113
     },
     "class_percentages": {
-      "safe": 62.5,
-      "warning": 25.0,
-      "evacuation": 12.5
+      "safe": 63.6,
+      "warning": 24.01,
+      "evacuation": 12.39
     }
   },
   "cutoffs": {
@@ -84,5 +84,5 @@
     "val_cutoff_date": "2026-04-07"
   },
   "minority_class_verified": true,
-  "evacuation_test_count": 232
+  "evacuation_test_count": 197
 }

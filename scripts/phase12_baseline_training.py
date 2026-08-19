@@ -10,9 +10,9 @@ splits from Phase 10, using:
 Run:
     python scripts/phase12_baseline_training.py
 
-Artifacts produced:
-    models/rf-v1-20260820.joblib
-    models/xgb-v1-20260820.joblib
+Artifacts produced (v2 — terrain-modulated labels, 2026-08-20):
+    models/rf-v2-20260820.joblib
+    models/xgb-v2-20260820.joblib
     models/feature_order.json
     models/label_encoding.json
 """
@@ -212,8 +212,8 @@ def main() -> None:
     print_eval("XGBClassifier", y_val, xgb_pred)
 
     print("\n[6] Saving artifacts ...")
-    rf_path  = MODELS_DIR / "rf-v1-20260820.joblib"
-    xgb_path = MODELS_DIR / "xgb-v1-20260820.joblib"
+    rf_path  = MODELS_DIR / "rf-v2-20260820.joblib"
+    xgb_path = MODELS_DIR / "xgb-v2-20260820.joblib"
     fo_path  = MODELS_DIR / "feature_order.json"
     le_path  = MODELS_DIR / "label_encoding.json"
 

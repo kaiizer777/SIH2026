@@ -1,18 +1,18 @@
 {
   "raw_counts": {
-    "safe": 2221,
-    "warning": 925,
-    "evacuation": 502
+    "safe": 2276,
+    "warning": 944,
+    "evacuation": 428
   },
   "raw_percentages": {
-    "safe": 60.88,
-    "warning": 25.36,
-    "evacuation": 13.76
+    "safe": 62.39,
+    "warning": 25.88,
+    "evacuation": 11.73
   },
   "computed_class_weights": {
-    "safe": 0.5475011256190905,
-    "warning": 1.3145945945945945,
-    "evacuation": 2.4223107569721116
+    "safe": 0.5342706502636204,
+    "warning": 1.2881355932203389,
+    "evacuation": 2.8411214953271027
   },
   "effective_weighted_sums": {
     "safe": 1216.0,
