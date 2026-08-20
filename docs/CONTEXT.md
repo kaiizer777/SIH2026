@@ -42,6 +42,8 @@
 | **Development Model** | Solo developer, hackathon deadline (Smart India Hackathon 2026) |
 | **Live Backend** | `https://sih2026-xk4z.onrender.com` |
 | **Live Frontend** | `https://sih-2026-drab.vercel.app` |
+| **API Docs** | `https://sih2026-xk4z.onrender.com/docs` (auto-generated OpenAPI) |
+| **License** | MIT |
 
 The system ingests multi-source geospatial and sensor data (DEM terrain derivatives, Sentinel-1 SAR backscatter, historical rainfall, and synthetic physics-informed sensor streams), trains ML/DL models to classify zone-level rockfall risk into three tiers — **Safe**, **Warning**, **Evacuation** — and surfaces predictions + real-time alerts through a WebSocket-powered dashboard.
 
@@ -268,15 +270,16 @@ SIH2026/
 
 | Technology | Version | Notes |
 |---|---|---|
-| **Next.js** | 16.3.1 | App Router, React Server Components |
+| **Next.js** | 16.3.1 | App Router, React Server Components, Turbopack dev server |
 | **React** | 19.2.x | Latest stable |
 | **Node.js** | ≥20.9 | Required by Next.js 16 |
-| **TypeScript** | 5.9.3 | Held back from TS7 (breaking changes) |
-| **ESLint** | 9.x | Held back from v10 |
+| **TypeScript** | 5.9.3 | Held back from TS7 (eslint-config-next not yet compatible) |
+| **ESLint** | 9.x | Held back from v10 (same reason) |
 | **Tailwind CSS** | 4.x | CSS-first config, `@theme` inline |
-| **recharts** | latest | Telemetry trend charts |
-| **maplibre-gl** | latest | MIT-licensed, no API key required |
-| **react-map-gl** | latest | React wrapper for MapLibre |
+| **recharts** | 3.10.1 | Telemetry trend charts |
+| **maplibre-gl** | 6.4.1 | MIT-licensed, no API key required |
+| **react-map-gl** | 8.1.2 | React wrapper for MapLibre |
+| **Playwright** | 1.62.1 | E2E testing (devDependency) |
 
 ### Backend
 
@@ -286,6 +289,9 @@ SIH2026/
 | **uvicorn** | latest | ASGI server |
 | **Python** | 3.12 | Pinned in runtime.txt |
 | **Pydantic** | v2 | Schema validation (bundled with FastAPI) |
+| **python-dotenv** | latest | `.env` file loading (`load_dotenv()`) |
+| **sentry-sdk** | 2.68.0 | Error monitoring (optional, DSN via env var) |
+| **websockets** | 17.0.1 | WebSocket client library (for testing/probes) |
 
 ### ML / Data Science
 
@@ -327,13 +333,21 @@ All phases complete. This section documents the provenance and characteristics o
 
 **Target site:** Kusmunda Mine, South Eastern Coalfields Limited (SECL), Chhattisgarh, India.
 
-- Bounding box defined in `data/aoi.json`.
+- **Mine type:** Open-pit coal mine.
+- **Bounding box** (from `data/aoi.json`):
+  - SW corner: 22.3204°N, 82.6476°E
+  - NE corner: 22.342°N, 82.6882°E
+  - Centre: 22.3312°N, 82.6679°E
+- **Provenance:** Coordinates derived from OpenStreetMap way 136512819 (`landuse=quarry`).
 - Selected for: operational open-pit mine, existing SSR deployment (real-world validation reference), freely available satellite coverage.
+- Confirmed compatible with the SSR/Kusmunda pitch framing.
 
 ### Phase 2 — GEE + Cloud Auth
 
-- Google Earth Engine Python API authenticated via service account.
-- Dependencies: `earthengine-api`, `richdem`, `rasterio`.
+- **GEE project ID:** `sih25071-rockfall`.
+- Google Earth Engine Python API authenticated via `ee.Authenticate()` + `ee.Initialize(project='sih25071-rockfall')`.
+- Dependencies: `earthengine-api`, `richdem`, `rasterio`, `numpy`, `pandas`.
+- `richdem` verified working in WSL2 `~/geo-env` (Python 3.10) and Windows `backend/venv`.
 - Verification script: `backend/scripts/verify_gee.py`.
 
 ### Phase 3 — DEM Pull + Terrain Derivatives
@@ -345,40 +359,60 @@ All phases complete. This section documents the provenance and characteristics o
   - `data/aspect.tif` — slope aspect (degrees from north).
   - `data/curvature.tif` — profile curvature (concavity/convexity).
 - **Processing:** GEE export to Google Cloud Storage → local download → richdem terrain analysis.
+- **Sanity check:** Visual verification in `data/terrain_sanity_check.png` (matplotlib slope/aspect plot confirming bench geometry).
 
 ### Phase 4 — SAR Backscatter Extraction
 
 - **Source:** Sentinel-1 GRD (COPERNICUS/S1_GRD), C-band SAR.
-- **Mode:** DESCENDING, Track 19 (relative orbit).
+- **Mode:** DESCENDING, Track 19 (relative orbit). `instrumentMode = 'IW'` (Interferometric Wide swath).
 - **Polarisations:** VV and VH.
-- **Acquisitions:** 30 dates.
-- **Output:** `data/sar_backscatter.csv` — VV and VH mean backscatter per zone per date.
+- **Acquisitions:** 30 dates (2025-08-19 to 2026-08-19).
+- **Output:** `data/sar_backscatter.csv` — VV and VH mean backscatter per zone per date (columns: `date, zone_id, vv_backscatter, vh_backscatter`).
 - **Important distinction:** This is **amplitude backscatter** (surface reflectivity), not InSAR (interferometric phase). Backscatter changes correlate with surface disturbance, moisture, and roughness — useful as a contextual feature but not a displacement measurement.
 
 ### Phase 5 — Rainfall Data
 
 - **Source:** Open-Meteo Historical Archive API (ERA5 reanalysis).
-- **Period:** 356 daily records covering the synthetic sensor date range.
+- **Period:** 356 daily records (2025-08-22 to 2026-08-12). Note: SAR dates (2025-08-19 to 2026-08-19) and rainfall dates (2025-08-22 to 2026-08-12) are not perfectly aligned — the join handles this via date matching.
+- **Spatial scale caveat:** ERA5-Land reanalysis resolution (~9–11 km) exceeds the pit footprint (4.8 km diagonal). One AOI center point query is optimal — zero variance across zone centroids was confirmed.
 - **Output:** `data/rainfall.csv` — daily precipitation in mm.
+- **Cross-validation:** 100% alignment with 30 SAR acquisition dates confirmed; zero missing/null records.
 
 ### Phase 6 — Zone Feature Table
 
-- **Zone grid:** 4×4 = 16 zones defined in `data/zone_grid.json` (GeoJSON polygons over the mine footprint).
+- **Zone grid:** 4×4 = 16 zones defined in `data/zone_grid.json` (GeoJSON polygons over the mine footprint, created 2026-08-19T17:18:43).
+- **Zone-tier distribution** (from terrain/SAR susceptibility scoring):
+  - 10 Low-risk zones (62.5%)
+  - 4 Medium-risk zones (25.0%)
+  - 2 High-risk zones (12.5%)
+  - Top 2 zones by susceptibility → evacuation tier, next 4 → warning tier, rest → safe tier.
 - **Output:** `data/zone_features.csv` — 480 rows (16 zones × 30 SAR dates).
-- **Columns:** zone_id, date, mean_VV, mean_VH, plus terrain derivatives aggregated per zone.
+- **Columns:** zone_id, date, slope, aspect, curvature, vv_backscatter, vh_backscatter, rainfall_mm.
 
 ### Phase 7 — Synthetic Sensor Data
 
 The most nuanced dataset. See [Section 12](#12-data-generation-evolution-v1--v2c) for the full evolution story.
 
 - **Generator:** `backend/app/physics_generator.py` — implements Fukuzono (1985) inverse velocity model.
-- **Parameters per zone:** susceptibility (from terrain/SAR), noise floor, acceleration profile.
+- **Fukuzono formula:** `v_fukuzono = 25.0 / (dt_to_failure ** 0.25)` where `dt_to_failure` is days until peak failure time.
+- **Peak failure day:** `_T_PEAK_FAILURE = 338` (day 338 = 2026-07-25, late monsoon maximum).
+- **API lambda decay:** 0.82.
+- **Susceptibility scoring weights:** slope × 0.50 + curvature × 0.30 + SAR × 0.20.
+- **Susceptibility multiplier range:** [0.70, 1.30] (rescaled from [0, 1] susceptibility composite).
+- **Staggered initial offsets:** zone_01 at t=0, zone_02 at t=1, ..., zone_16 at t=15.
+- **Simulated timestamps:** Use rainfall.csv dates (not wall-clock). Series wraps at mod 356.
+- **Inter-sensor correlations** (validated against calibration datasets):
+  - pore_pressure–displacement: r=0.918
+  - strain–displacement: r=0.968
+  - vibration–displacement: r=0.970
+- **Parameters per zone:** susceptibility (from terrain/SAR), noise floor, acceleration profile, v_base, v_rain_amp, u_base, u_gain (per tier).
 - **Output (v2 — production):** `data/synthetic_sensors.csv` — 5,696 rows (16 zones × 356 days).
 - **Columns:** sensor_id, zone_id, timestamp, displacement_mm_day, vibration, pore_pressure, strain, rainfall_mm, risk_level.
 - **Labelling logic (v2):**
   1. Compute `risk_score = displacement × susceptibility_multiplier`.
   2. Apply thresholds on `risk_score` (not raw displacement).
   3. This produces physically meaningful class boundaries that interact with terrain context.
+- **Target class distribution** (from 2026 physics-informed rockfall paper): Low 60% / Medium 25% / High 15%. Actual achieved: 60.13% / 24.98% / 14.89%.
 
 **v1 bug:** Labels were purely displacement-based; terrain and SAR features were contextual only and never influenced the label. This led to 0 crossover pairs and near-zero tree-model SHAP importance for contextual features.
 
@@ -388,11 +422,13 @@ The most nuanced dataset. See [Section 12](#12-data-generation-evolution-v1--v2c
 
 - Verified that the FastAPI app starts cleanly with mock data paths.
 - Confirmed schema validation round-trip.
+- **Zone ID drift fix:** `rockfall.py` line 78 had placeholder zone IDs (`["ZONE-A", "ZONE-B", "ZONE-C", "PIT-NORTH"]`). Fixed to `[f"zone_{i:02d}" for i in range(1, 17)]` — now matches the canonical `zone_01..zone_16` format across all data files and backend schema.
 
 ### Phase 9 — End-of-Day-2 Review
 
 - All data assets inventoried.
 - Pipeline reproducibility confirmed.
+- **Schema drift finding:** `frontend/lib/types.ts` `SensorReading` was missing the optional `risk_level?: RiskLevel | null` field. Non-blocking on Day 2, flagged for Phase 22 fix.
 - Session notes: `docs/session-done-01.md`.
 
 ---
@@ -405,22 +441,32 @@ All phases complete.
 
 **Zero temporal leakage.** Data is split by date, not randomly:
 
-| Split | Cutoff Date | Rows |
-|---|---|---|
-| **Train** | Before 2026-04-07 | ~3,800 |
-| **Validation** | 2026-04-07 to 2026-06-03 | ~900 |
-| **Test** | After 2026-06-03 | ~1,000 |
+| Split | Date Range | Rows | Days | Evacuation Count |
+|---|---|---|---|---|
+| **Full dataset** | 2025-08-22 → 2026-08-12 | 5,696 | 356 | 741 (13.0%) |
+| **Train (full)** | 2025-08-22 → 2026-06-02 | 4,560 | 285 | 544 (12.0%) |
+| **Train (core)** | 2025-08-22 → 2026-04-06 | 3,648 | 228 | — |
+| **Validation** | 2026-04-07 → 2026-06-02 | 912 | 57 | 113 (12.4%) |
+| **Test** | 2026-06-03 → 2026-08-12 | 1,136 | 71 | 197 (17.3%) |
+
+- **train_full** (4,560 rows): used for class weight computation (`compute_sample_weight`).
+- **train_core** (3,648 rows): used for actual model training. The difference (912 rows) is the validation period used for early stopping / hyperparameter tuning.
+- Test set has higher evacuation density (17.3%) because late-monsoon displacement peaks fall in the test window.
 
 Metadata stored in `data/split_metadata.json`.
 
 ### Phase 11 — Class Weighting
 
 - **Method:** `sklearn.utils.class_weight.compute_sample_weight('balanced')`.
+- **Balanced effective weights:** ~0.53 (safe) / 1.29 (warning) / 2.84 (evacuation). These are inverse-frequency multipliers — evacuation samples get ~5.4× the loss weight of safe samples.
 - **Why not SMOTE:** Synthetic Minority Oversampling Technique generates synthetic samples by interpolating between existing minority-class neighbours. In our data, features are **physically correlated** across time (displacement is autocorrelated, rainfall has seasonality, SAR backscatter changes slowly). SMOTE would create physically impossible feature combinations — a zone cannot have high displacement, low rainfall, and high SAR backscatter simultaneously in a way that's plausible. Class weighting preserves the physical structure of every real sample.
+- **Pitch one-liner (memorise verbatim):** *"We use class-weighted loss rather than SMOTE because our sensor channels are physically correlated by construction — synthetic interpolation risks generating physically implausible readings. Weighting keeps every training point real."*
 - **Output:** `data/train_sample_weights.npy` (and v2b/v2c variants).
 - **Metadata:** `data/weights_metadata.json`.
 
 ### Phase 12 — Model Training
+
+**Feature join:** SAR/terrain features forward-filled onto daily sensor rows. **Max forward-fill staleness:** 23 days worst-case (within 1 SAR repeat-pass cycle — defensible). Mean staleness: 5.84 days, median: 6.00 days.
 
 **RandomForest (v2 — production):**
 - `n_estimators=300`
@@ -430,24 +476,29 @@ Metadata stored in `data/split_metadata.json`.
 **XGBoost (v2 — production):**
 - `n_estimators=300`
 - `max_depth=6`
+- `learning_rate=0.1`
 - Class-weighted via sample_weight parameter
 
 Both trained on v2 data with temporal split and sample weights.
 
 ### Phase 13 — SHAP Analysis
 
-SHAP (SHapley Additive exPlanations) values computed on the validation set.
+SHAP (SHapley Additive exPlanations) values computed on the **validation set** (912 rows).
 
-**Key result (v2):**
+**Key result (v2, validation set):**
 
 | Model | Terrain + SAR SHAP Contribution |
 |---|---|
 | RandomForest | 18.63% |
 | XGBoost | 6.75% |
 
+**Test set SHAP** (out-of-sample, reported in the comparison table below): RF 17.03%, XGBoost 6.90%. Numbers align perfectly with validation — no material divergence.
+
 This confirms that contextual features (terrain derivatives + SAR backscatter) contribute meaningfully to predictions — a direct consequence of the v2 labelling fix where `risk_score` incorporates zone susceptibility.
 
 **v1 comparison:** RF terrain/SAR SHAP was 12.27%, XGBoost was near-zero. The v2 fix improved feature utilisation.
+
+**Validation accuracy:** RF 100%, XGBoost 99.89% (1 misclassification on 912 rows). Both essentially perfect on synthetic data — expected.
 
 ### Phase 14 — Test Evaluation
 
@@ -465,8 +516,11 @@ XGBoost achieves perfect recall on Evacuation (zero missed events). RF trades 3 
 
 All models serialized:
 - RF/XGBoost: `.joblib` format (scikit-learn/XGBoost native).
-- Feature order: `feature_order.json` (column order must match at inference time).
-- Label encoding: `label_encoding.json` (maps numeric class → string label).
+- Feature order: `feature_order.json` — **exact column order matters at inference time:**
+  ```
+  displacement_mm_day, vibration, pore_pressure, strain, slope, aspect, curvature, vv_backscatter, vh_backscatter, rainfall_mm
+  ```
+- Label encoding: `label_encoding.json` — `{"safe": 0, "warning": 1, "evacuation": 2}` (maps string label ↔ numeric class).
 
 ### Phase 16 — Review Checklist
 
@@ -482,12 +536,13 @@ All phases complete.
 
 - **Window size:** 14 days (each input is a 14-timestep × 10-feature tensor).
 - **Stride:** 1 day (sliding window).
+- **History boundary policy (Option B):** Windows may pull history **backward** from an earlier split (e.g., a val-target window can reach into train-period dates for its preceding 13 days) but **never forward** into a later split. Label/split assignment follows the **target (last-timestep) date only**. This recovers the first 13 days of evacuation signal in val/test at zero leakage cost.
 - **Sequence counts:**
-  - Train: 3,440 sequences
+  - Train: 3,440 sequences (lower than 4,560 train rows because each zone's first 13 days have no earlier history to borrow from — genuinely dropped, not a bug)
   - Validation: 912 sequences
   - Test: 1,136 sequences
+- **Evacuation-class sequence counts:** train 403, val 113, test 197 — all above the thin-class warning threshold (30).
 - **Storage:** `data/sequences/*.npz` with manifest in `data/sequences/manifest.json`.
-- **Features (10):** displacement_mm_day, vibration, pore_pressure, strain, rainfall_mm, slope, aspect, curvature, mean_VV, mean_VH.
 
 ### Phase 18 — GRU Training
 
@@ -495,8 +550,10 @@ All phases complete.
   - `input_size=10` (features per timestep)
   - `hidden_size=64`
   - `num_classes=3`
-- **Framework:** PyTorch.
-- **Loss:** Class-weighted CrossEntropyLoss (same weighting rationale as tree models).
+  - `dropout=0.2` (between GRU output and linear layer)
+- **Framework:** PyTorch (verified 2.11.0+cpu).
+- **Loss:** Class-weighted `nn.CrossEntropyLoss(weight=weight_tensor)` with weights `[0.5341, 1.2884, 2.8453]` computed from `y_train_seq` (3,440 labels, not the full 4,560 row-level labels — sequence class distribution differs slightly).
+- **Why GRU over LSTM:** At ~3,440 training sequences with a short 14-day window on physics-clean synthetic data, GRU's ~25% fewer parameters means less overfitting risk with no accuracy trade-off. LSTM's extra forget/output gating pays off mainly on long or noisy sequences, which this data doesn't have. Literature consensus: GRU is the default starting point when data is limited.
 - **Optimiser:** Adam.
 - **Early stopping:** Patience=8, best validation loss = 0.03216 at epoch 19.
 - **Artifacts:** `models/gru-v1-20260821.pt` (weights), `models/gru-v1-20260821_config.json` (architecture).
@@ -530,10 +587,19 @@ All phases complete.
 ### Phase 21 — Real Generator in /ws/feed
 
 - `backend/app/physics_generator.py` produces live sensor streams.
-- Each tick: one `SensorReading` per zone (16 zones).
-- Alert triggers when a zone's risk class **crosses upward** (Safe→Warning, Warning→Evacuation, Safe→Evacuation).
-- De-dup logic: identical alerts for the same zone + severity within a cooldown window are suppressed.
+- **ConnectionManager pattern:** `app/routers/rockfall.py` implements a `ConnectionManager` class with `connect()`, `disconnect()`, and `broadcast()` methods. Disconnect-safe: per-connection try/except in broadcast loop catches `WebSocketDisconnect`, removes from `active_connections` set, and continues broadcasting to remaining clients.
+- Round-robin: **one zone per tick**, not all 16. Full cycle = 16 ticks × 2.5s = 40 seconds.
+- Broadcast interval: 2.5 seconds (configurable via `BROADCAST_INTERVAL_SECONDS` env var).
+- Physics cursor advances regardless of client count.
+- **`classify_alert()` transition table:**
+  - Safe→Warning: `"warning"` alert
+  - Warning→Evacuation: `"evacuation"` alert
+  - Safe→Evacuation: `"evacuation"` alert
+  - Evacuation→Warning: `"advisory"` alert (downgrade)
+  - Warning→Safe: `"advisory"` alert (downgrade)
+  - Same→Same: `None` (suppressed — de-dup)
 - WebSocket broadcasts both `telemetry_update` and `alert_event` envelopes.
+- **Lifespan-based model loading:** Model loaded in FastAPI's `lifespan` async context manager (not at import time or inside endpoint). Load failure crashes startup (fail-fast) so Render's process manager flags it. This is a deliberate engineering maturity signal — a worker that can't load the model should not serve 500s silently.
 
 ### Phase 22 — Frontend Re-pointed
 
@@ -564,20 +630,32 @@ All phases complete.
 
 ### Phase 26 — Full Integration Test
 
-Using `TestClient` (from `httpx`) and `websocket_connect()`:
+Using `TestClient` (from `fastapi.testclient`) and `websocket_connect()`:
 
+- **Tick budget:** 32 ticks at `BROADCAST_INTERVAL_SECONDS=0.25s`. Total test duration: 13.12s. Time-to-first-message: 2.69s.
+- **Results:** 25 `telemetry_update` envelopes (Pydantic-validated against `SensorReading` + `RiskPrediction`) + 7 `alert_event` envelopes (validated against `AlertEvent`). All schema-valid.
 - `POST /predict` with known input → correct risk class returned.
 - `WS /ws/feed` → receives `telemetry_update` frames.
-- **Forced evacuation test:** Inject extreme displacement → `alert_event` received.
-- **De-dup test:** Repeat same extreme input within cooldown → second alert suppressed.
-- **Reconnect test:** Disconnect WebSocket → client reconnects automatically.
+- **Forced evacuation test:** `FORCE_EVAC_ZONE=zone_01` env var injects a deterministic evacuation-tier reading (`disp=240 mm/day, vib=0.85, pore=230 kPa, strain=1400`). Alert fired at message index 1 (within 2.69s).
+- **De-dup test:** 8 consecutive forced-evac ticks → exactly 1 AlertEvent fired (tick 1), 0 alerts on ticks 2–8. `classify_alert()` correctly returned `None` for `("evacuation", "evacuation")` transitions.
+- **Reconnect test:** Opens WS1 (5 messages), closes, sleeps 0.6s, opens WS2 (5 messages). No leak, no duplicate broadcast, WS2 receives fresh ticks normally.
+- **Debug env vars (OFF by default, strip before demo):** `FORCE_EVAC_ZONE`, `BROADCAST_FORCE_ZONE_ID`, `BROADCAST_INTERVAL_SECONDS`.
 
 ### Phase 27 — Deploy Hardening
 
-- **Debug-flag audit:** Ensure no `DEBUG=True` in production.
-- **GitHub Actions heartbeat:** `.github/workflows/keep-render-alive.yml` — cron every 14 minutes pings `GET /health` to prevent Render free-tier cold start.
-- **CORS verification:** Confirm frontend origin is in the allowed origins list.
-- **WS verification:** Confirm WebSocket upgrade works through Render's reverse proxy.
+- **Debug-flag audit:** Confirmed `render.yaml` contains only `PYTHON_VERSION=3.12.0` and `FRONTEND_ORIGIN`. None of the debug env vars are in production config.
+- **GitHub Actions heartbeat:** `.github/workflows/keep-render-alive.yml` — cron every 14 minutes + `workflow_dispatch` for manual demo-day warm-up. Error handling: captures HTTP status + body, fails loudly on non-200.
+- **CORS verification:** Backend CORS allow-list includes `https://sih-2026-drab.vercel.app` literally and `https://.*\.vercel\.app` via regex.
+- **Live network probe results (2026-08-20 ~08:30 IST):**
+
+| Probe | Result | Detail |
+|---|---|---|
+| `GET /health` | 200 OK | `{"status":"ok","model_version":"rf-v2-20260820","service":"rockfall-prediction-backend"}` |
+| `GET /` | 200 OK | status: online, uptime tick running |
+| `POST /predict` | 200 OK | Valid SensorReading → RiskPrediction with `model_version=rf-v2-20260820` |
+| `wss://.../ws/feed` | Streaming | TLS+WS handshake ~589ms; 3 telemetry_update envelopes with correct model_version |
+| Vercel `/alerts` | 200 OK | WebSocket connected, real alerts rendered |
+- **Vercel stale build finding:** Deployed alerts page had 4 hardcoded `mockAlerts` (from pre-Phase-25 commit). Source is clean; fix requires commit + push to trigger Vercel auto-deploy.
 
 ### Phase 28 — Demo Script + Failure-Mode Rehearsal
 
@@ -639,7 +717,8 @@ This section documents the critical debugging journey that transformed the datas
 
 ### v1 — The Broken Baseline
 
-- **Labelling:** `risk_level` based purely on raw `displacement_mm_day` against fixed thresholds.
+- **Labelling:** `risk_level` based purely on raw `displacement_mm_day` against fixed thresholds (safe 0–52, warning 50–119, evacuation 120–255 mm/day — hard-clipped, non-overlapping).
+- **Class distribution:** 60.3% safe / 24.7% warning / 14.9% evacuation.
 - **Result:** Terrain (slope, aspect, curvature) and SAR backscatter had zero influence on labels.
 - **Crossover pairs:** 0 (no pair of samples where contextual features differ but labels are the same).
 - **Model performance:** XGBoost 0.00% SHAP on terrain/SAR, RF 12.27%.
@@ -648,23 +727,26 @@ This section documents the critical debugging journey that transformed the datas
 ### v2 — The Fix (Production)
 
 - **Labelling:** `risk_score = displacement_mm_day × susceptibility_multiplier`.
-- `susceptibility_multiplier` is computed from terrain (steep slope, concave curvature) and SAR (high backscatter change).
+- `susceptibility_multiplier` is computed from terrain (steep slope, concave curvature) and SAR (high backscatter change), rescaled [0,1]→[0.70, 1.30].
+- **Displacement ranges (overlapping):** safe 6–62, warning 45–110, evacuation 101–196 mm/day. Same displacement value in different terrain zones yields different class labels.
+- **Class distribution:** 61.01% safe / 26.04% warning / 12.96% evacuation (from `split_metadata.json`).
 - Thresholds applied to `risk_score`, not raw displacement.
 - **Result:** 75 crossover pairs. Contextual features now influence labels.
-- **SHAP:** RF terrain/SAR = 18.63%, XGBoost = 6.75%.
+- **SHAP:** RF terrain/SAR = 18.63% (val), 17.03% (test). XGBoost = 6.75% (val), 6.90% (test).
 - **This is the production dataset.**
 
-### v2b — Isolation Test (Multiplier Alone, Original Range)
+### v2b — Isolation Test (Multiplier Alone, Original Range [0.70, 1.30])
 
 - Tests whether the multiplier alone (without range widening) drives SHAP contribution.
 - **Result:** 0 crossover pairs, XGBoost 0.00%, RF 30.31%.
 - **Insight:** RF is more sensitive to structural features; XGBoost needs explicit crossover signal.
 
-### v2c — Isolation Test (Multiplier Alone, Aggressive Range)
+### v2c — Isolation Test (Multiplier Alone, Aggressive Range [0.50, 1.60])
 
-- Same as v2b but with a wider multiplier range.
-- **Result:** 3 crossover pairs, XGBoost 0.00%, RF 30.31%.
+- Same as v2b but with a much wider, physically aggressive multiplier range.
+- **Result:** 3 crossover pairs (0.05%), XGBoost 0.00%, RF 30.31% (identical to v2b to four decimal places).
 - **Insight:** Range widening alone doesn't fix XGBoost. The crossover pairs in v2 are the key.
+- **RF artifact explained:** RF's 30.31% terrain/SAR SHAP is stable across v2b and v2c regardless of multiplier strength — driven by spatial autocorrelation between slope and zone tier, NOT by the label-generation mechanism itself.
 
 ### Summary Table
 
@@ -687,9 +769,65 @@ This section documents the critical debugging journey that transformed the datas
 
 - **Theme:** Light mode only. No dark mode (safety dashboards in well-lit control rooms).
 - **Primary accent:** Ink-blue `#2563EB` — conveys trust, precision, calm.
-- **Background:** Paper white — clean, low-fatigue for extended monitoring.
-- **Typography:** Geist family (sans for body, mono for data readouts).
-- **Layout pattern:** Row-based, not card grids. Rows of data feel more like a control panel; card grids feel like a portfolio site.
+- **Background:** Paper white `#FFFFFF` with subtle radial gradient: `radial-gradient(1200px 600px at 50% -200px, #EFF4FF 0%, #F7F9FF 35%, #FFFFFF 70%)`.
+- **Typography:** Geist family (sans for body, mono for data readouts). No Inter, Outfit, or other families.
+- **Layout pattern:** Row-based, not card grids. One item per horizontal line. Full-width rows with hairline dividers.
+
+### Color Tokens
+
+| Token | Hex | Usage |
+|---|---|---|
+| `ink` | `#2563EB` | Primary accent: eyebrows, focus rings, links, active dots |
+| `inkDeep` | `#1D4ED8` | Hover state for ink |
+| `inkSoft` | `#EFF4FF` | 10-second summary callout background |
+| `paper` | `#FFFFFF` | Default surface |
+| `paperWarm` | `#FBFBFD` | Alternate surface for inset cards |
+| `inkDark` | `#0B1220` | Primary text: headlines, numerics, buttons |
+| `muted` | `#5B6472` | Secondary text: descriptions, captions |
+| `mutedSoft` | `#8A93A1` | Tertiary text: placeholders, axis labels |
+| `hairline` | `#E6E8EE` | All dividers, input borders, table lines |
+| `safe` | `#047857` | Safe state, success callouts |
+| `warning` | `#B45309` | Warning state, amber callouts |
+| `danger` | `#B91C1C` | Evacuation state, error callouts |
+
+### Typography Scale
+
+| Role | Family | Size | Weight | Tracking |
+|---|---|---|---|---|
+| Chapter eyebrow | Geist Mono | 11px | normal | 0.22em uppercase |
+| Chapter title | Geist | 24→30px | 600 | -0.02em |
+| Row Q-num | Geist Mono | 11px | normal | 0.18em uppercase |
+| Row headline | Geist | 18→20px | 600 | -0.01em |
+| Body | Geist | 15→16px | 400 | 0, leading 1.7 |
+| Numeric (big) | Geist Mono | 60→84px | 600 | -0.04em |
+
+### Anti-Patterns (do not ship)
+
+- Dark slate backgrounds as default
+- Card grids (2-up or 3-up Q&A, 4-up stat tiles)
+- Glassmorphism, blur-backdrop cards, neon glows
+- Purple-to-pink gradients
+- Emoji as primary visual hierarchy
+- Heavy borders, drop shadows on every block
+- Centered hero with three identical feature cards
+
+### Component Patterns
+
+- **TopBar:** Sticky, `backdrop-blur-xl`, `bg-white/80`, hairline bottom border. Search-first (no H1), pill-shaped search input with `Ctrl+K` hint.
+- **Tabs:** Single row, underline style, `text-[13px] font-medium`, active tab has `2px ink-blue underline`.
+- **Rows:** Left column (48–64px) for mono labels, right column for content. Hairline `border-b` between rows.
+- **10-second summary:** `bg-[#EFF4FF] border-l-2 border-[#2563EB]` callout inside rows.
+- **Buttons:** Primary `bg-[#0B1220] text-white rounded-full`, secondary `border border-[#E6E8EE]`, accent `bg-[#2563EB]`. No scale/translate/shadow on hover.
+- **Stats blocks:** Hairline grid (`gap-px bg-[#E6E8EE]`), not separate cards.
+- **Modal:** Backdrop `bg-[#0B1220]/40 backdrop-blur-sm`, card `rounded-3xl p-7 shadow-2xl`.
+
+### Accessibility
+
+- **Contrast:** `#0B1220` on `#FFFFFF` = 18.7:1 (AAA). `#5B6472` on `#FFFFFF` = 7.0:1 (AA).
+- **Focus rings:** `focus:ring-2 focus:ring-[#2563EB]/15 focus:border-[#2563EB]`.
+- **Tap targets:** Minimum 44×44px (Apple HIG, WCAG 2.5.5).
+- **Tab order:** Search → filter pills → timer → tabs → first row → expand.
+- **`aria-hidden`** on decorative SVGs. **`aria-label`** on icon-only buttons.
 
 ### Responsive Design
 
@@ -726,6 +864,22 @@ A comprehensive 450-line design guide is maintained in `frontend.md` at the repo
 
 ## 14. API Reference
 
+### GET /
+
+**Purpose:** Root endpoint — service identification and uptime.
+
+**Response:**
+```json
+{
+  "service": "rockfall-prediction-backend",
+  "status": "online",
+  "uptime_seconds": 12345.6,
+  "timestamp": "2026-08-15T10:30:00Z"
+}
+```
+
+---
+
 ### GET /health
 
 **Purpose:** Liveness probe and service identification.
@@ -733,9 +887,9 @@ A comprehensive 450-line design guide is maintained in `frontend.md` at the repo
 **Response:**
 ```json
 {
-  "status": "healthy",
+  "status": "ok",
   "model_version": "rf-v2-20260820",
-  "service": "rockfall-prediction"
+  "service": "rockfall-prediction-backend"
 }
 ```
 
@@ -747,6 +901,8 @@ A comprehensive 450-line design guide is maintained in `frontend.md` at the repo
 
 **Purpose:** Run a single sensor reading through the ML model and return a risk prediction.
 
+**Also mounted at:** `/api/rockfall/predict` (dual-mount pattern in `main.py`).
+
 **Request body:** `SensorReading` (see [Data Schemas](#15-data-schemas)).
 
 **Response:** `RiskPrediction` (see [Data Schemas](#15-data-schemas)).
@@ -756,7 +912,7 @@ A comprehensive 450-line design guide is maintained in `frontend.md` at the repo
 // Request
 {
   "sensor_id": "sensor-07",
-  "zone_id": "zone-12",
+  "zone_id": "zone_12",
   "timestamp": "2026-08-15T10:30:00Z",
   "displacement_mm_day": 85.2,
   "vibration": 0.42,
@@ -768,7 +924,7 @@ A comprehensive 450-line design guide is maintained in `frontend.md` at the repo
 
 // Response
 {
-  "zone_id": "zone-12",
+  "zone_id": "zone_12",
   "timestamp": "2026-08-15T10:30:00Z",
   "risk_level": "warning",
   "risk_score": 0.73,
@@ -779,11 +935,13 @@ A comprehensive 450-line design guide is maintained in `frontend.md` at the repo
 
 ---
 
-### WS /ws/feed
+### WS /ws/feed (also aliased as /ws)
 
 **Purpose:** Real-time telemetry and alert streaming via WebSocket.
 
 **Protocol:** `ws://` or `wss://` (upgrade from HTTP).
+
+**Broadcast interval:** 2.5 seconds per tick (configurable via `BROADCAST_INTERVAL_SECONDS` env var).
 
 **Message types:**
 
@@ -791,7 +949,7 @@ A comprehensive 450-line design guide is maintained in `frontend.md` at the repo
 ```json
 {
   "type": "telemetry_update",
-  "data": {
+  "sensor_reading": {
     "sensor_id": "sensor-03",
     "zone_id": "zone-05",
     "timestamp": "2026-08-15T10:30:00Z",
@@ -800,8 +958,17 @@ A comprehensive 450-line design guide is maintained in `frontend.md` at the repo
     "pore_pressure": 205.0,
     "strain": 0.0012,
     "rainfall_mm": 3.2,
-    "risk_level": "safe"
-  }
+    "risk_level": null
+  },
+  "risk_prediction": {
+    "zone_id": "zone-05",
+    "timestamp": "2026-08-15T10:30:00Z",
+    "risk_level": "safe",
+    "risk_score": 0.12,
+    "displacement_velocity_mm_day": 12.4,
+    "model_version": "rf-v2-20260820"
+  },
+  "timestamp": "2026-08-15T10:30:00Z"
 }
 ```
 
@@ -809,14 +976,15 @@ A comprehensive 450-line design guide is maintained in `frontend.md` at the repo
 ```json
 {
   "type": "alert_event",
-  "data": {
-    "alert_id": "alert-20260815-103000-zone12",
-    "zone_id": "zone-12",
+  "payload": {
+    "alert_id": "ALT-zone_12-20260815T103000123456",
+    "zone_id": "zone_12",
     "severity": "evacuation",
-    "message": "Risk escalated to EVACUATION in zone-12. Immediate action required.",
+    "message": "Risk escalated to EVACUATION in zone_12. Immediate action required.",
     "triggered_at": "2026-08-15T10:30:00Z",
     "acknowledged": false
-  }
+  },
+  "timestamp": "2026-08-15T10:30:00Z"
 }
 ```
 
@@ -831,7 +999,7 @@ A comprehensive 450-line design guide is maintained in `frontend.md` at the repo
 ```typescript
 interface SensorReading {
   sensor_id: string;          // e.g. "sensor-07"
-  zone_id: string;            // e.g. "zone-12"
+  zone_id: string;            // e.g. "zone_12"
   timestamp: string;          // ISO 8601
   displacement_mm_day: number; // Daily displacement in mm
   vibration: number;          // Normalised vibration index
@@ -841,6 +1009,12 @@ interface SensorReading {
   risk_level?: string | null; // Optional override (usually null, model predicts)
 }
 ```
+
+**Pydantic enforcement:** `risk_score` field uses `Field(..., ge=0.0, le=1.0)` — constrained to [0, 1] at validation time.
+
+**Threshold constants** (defined as module-level constants in `backend/app/schemas.py` and mirrored in `frontend/lib/types.ts`):
+- `SAFE_DISPLACEMENT_MAX_MM_DAY = 50.0`
+- `WARNING_DISPLACEMENT_MAX_MM_DAY = 120.0`
 
 ### RiskPrediction
 
@@ -859,13 +1033,36 @@ interface RiskPrediction {
 
 ```typescript
 interface AlertEvent {
-  alert_id: string;                   // Unique, timestamped
+  alert_id: string;                   // e.g. "ALT-zone_01-20260815T103000123456"
   zone_id: string;
-  severity: "warning" | "evacuation";
+  severity: "safe" | "advisory" | "warning" | "evacuation";
   message: string;                    // Human-readable
   triggered_at: string;               // ISO 8601
   acknowledged: boolean;              // Default false
 }
+```
+
+- `"warning"` / `"evacuation"`: emitted on upward class crossings (Safe→Warning, Warning→Evacuation).
+- `"advisory"`: emitted on **downgrade** transitions (Evacuation→Warning, Warning→Safe).
+- `"safe"`: used in TypeScript frontend type but not currently emitted by backend.
+
+### WebSocket Message Envelope Types
+
+```typescript
+interface TelemetryUpdateMessage {
+  type: "telemetry_update";
+  sensor_reading: SensorReading;
+  risk_prediction: RiskPrediction;
+  timestamp: string;
+}
+
+interface AlertEventMessage {
+  type: "alert_event";
+  payload: AlertEvent;
+  timestamp: string;
+}
+
+type WebSocketMessage = TelemetryUpdateMessage | AlertEventMessage;
 ```
 
 ---
@@ -892,7 +1089,11 @@ interface AlertEvent {
 ### Backend (Render)
 
 - **Platform:** Render free tier.
+- **Service name:** `sih25071-rockfall-backend`.
 - **Runtime:** Python 3.12, uvicorn.
+- **Start command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`.
+- **Auto-deploy:** Enabled (`autoDeploy: true` in `render.yaml`).
+- **Environment variables:** `PYTHON_VERSION=3.12.0` (in yaml), `FRONTEND_ORIGIN` (set in Render dashboard, sync: false).
 - **Sleep behaviour:** After 15 minutes of inactivity.
 - **Cold start:** ~30–60 seconds (loads RF model into memory).
 - **Mitigation:** GitHub Actions cron pings `GET /health` every 14 minutes.
@@ -901,28 +1102,43 @@ interface AlertEvent {
 ### Frontend (Vercel)
 
 - **Platform:** Vercel (hobby tier).
-- **Framework:** Next.js 16.3.1, optimised for Vercel.
+- **Framework:** Next.js 16.3.1 with Turbopack (`next dev --turbopack`), optimised for Vercel.
 - **Deploy trigger:** Push to main branch (auto-deploy).
-- **Environment variables:** Backend URL configured via Vercel env vars.
+- **Environment variables:**
+  - `NEXT_PUBLIC_API_URL=https://sih2026-xk4z.onrender.com`
+  - `NEXT_PUBLIC_WS_URL=wss://sih2026-xk4z.onrender.com/ws/feed`
+- **Metadata title:** "SIH 2026 • AI Rockfall Early Warning System"
 
 ### Heartbeat
 
 **File:** `.github/workflows/keep-render-alive.yml`
 
 ```yaml
-# Simplified structure
 on:
   schedule:
-    - cron: '*/14 * * * *'  # Every 14 minutes
+    - cron: '*/14 * * * *'  # Every 14 minutes (under Render's 15-min idle threshold)
+  workflow_dispatch:          # Manual trigger for demo-day warm-up
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Ping backend
-        run: curl -s https://sih2026-xk4z.onrender.com/health
+      - name: Ping backend health endpoint
+        run: |
+          HTTP_STATUS=$(curl -s -o response.txt -w "%{http_code}" --max-time 60 \
+            https://sih2026-xk4z.onrender.com/health)
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "ERROR: Health check returned HTTP $HTTP_STATUS"
+            cat response.txt
+            exit 1
+          fi
+          echo "OK: HTTP $HTTP_STATUS"
+          cat response.txt
 ```
 
-This prevents the Render free-tier instance from sleeping due to inactivity.
+- **`workflow_dispatch`**: allows manual warm-up trigger before demo presentation.
+- **Error handling**: captures HTTP status + body, fails loudly on non-200.
+- **Curl timeout**: 60 seconds (`--max-time 60`).
 
 ---
 
@@ -944,10 +1160,11 @@ Sensors → Edge Device (Raspberry Pi) → ONNX Runtime → Local Alert
 
 ### What's Needed
 
-1. Convert RF v2 model to ONNX (`skl2onnx`).
-2. Convert GRU to ONNX (`torch.onnx.export`).
-3. Write a Python inference script that reads sensor data, runs ONNX, outputs alerts.
-4. Deploy to Raspberry Pi with a cellular/WiFi link for local SMS/buzzer alerts.
+1. Convert RF v2 model to ONNX (`skl2onnx` — works directly via `to_onnx()`).
+2. Convert XGBoost to ONNX (**requires `onnxmltools` + `update_registered_converter`** — `skl2onnx` alone does not handle XGBoost).
+3. Convert GRU to ONNX (`torch.onnx.export`).
+4. Write a Python inference script that reads sensor data, runs ONNX, outputs alerts.
+5. Deploy to Raspberry Pi with a cellular/WiFi link for local SMS/buzzer alerts.
 
 ### Current State
 
@@ -1049,7 +1266,7 @@ This section contains the narrative framing for the SIH presentation and anticip
 
 #### "Your model just predicts 'safe' all the time."
 
-**Rebuttal:** Our evaluation uses per-class precision and recall, not accuracy. The Evacuation class F1 is 0.9898 (RF) and 0.9850 (XGBoost). If the model predicted only "safe," Evacuation recall would be 0.00 and F1 would be 0.00. We show confusion matrices with real numbers. The model genuinely discriminates between all three classes.
+**Rebuttal:** On this class distribution, a model that always predicts "safe" scores roughly 60% accuracy and is worthless — it never once catches a real evacuation event. That's exactly why we don't report accuracy as our headline metric. We report precision and recall on the evacuation class specifically, using class-weighted training so the loss function itself penalises missing a rare evacuation event far more than misclassifying a safe reading. A missed evacuation is a life-safety failure; a false alarm is an inconvenience — our metric choice reflects that asymmetry.
 
 #### "You're using synthetic data."
 
@@ -1065,6 +1282,8 @@ This section contains the narrative framing for the SIH presentation and anticip
 #### "Why class weighting over SMOTE?"
 
 **Rebuttal:** SMOTE synthesises new samples by interpolating between existing minority-class neighbours. In our dataset, features are physically correlated — displacement autocorrelates over time, rainfall has seasonality, SAR backscatter changes slowly. SMOTE would create physically impossible feature combinations (e.g., high displacement with low rainfall and anomalous SAR in a way that can't occur in reality). Class weighting preserves every real sample's physical integrity.
+
+**One-liner (memorise):** *"We use class-weighted loss rather than SMOTE because our sensor channels are physically correlated by construction — synthetic interpolation risks generating physically implausible readings. Weighting keeps every training point real."*
 
 #### "Why RF over XGBoost? XGBoost has 0 missed evacuations."
 

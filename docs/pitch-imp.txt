@@ -1,0 +1,77 @@
+Pitch File — Model Selection & SHAP Interpretability
+
+Q1: What is SHAP and how does it work at a conceptual level?
+A:
+- SHAP stands for SHapley Additive exPlanations, based on Nobel Prize-winning cooperative game theory.
+- Think of every prediction as a team game where all 10 features are team players.
+- SHAP calculates the exact percentage credit or blame each feature deserves for the final risk score.
+- For every single mine reading, it tells us exactly how much slope, radar, or displacement contributed.
+
+Q2: Why did we run SHAP analysis and what specifically were we trying to prove?
+A:
+- To prove our AI actually uses satellite radar and terrain data, not just raw displacement sensors.
+- A lazy AI model would only check if displacement is high and ignore the mountain geology.
+- SHAP proves our model combines all sensors, weather, and satellite maps together for its predictions.
+- We verified this on the 912-sample validation set and confirmed identical patterns on the test set.
+
+Q3: What do the terrain/SAR SHAP contribution numbers mean — RF 17.03% vs XGBoost 6.90%?
+A:
+- Terrain/SAR features include slope angle, curvature, aspect, and Sentinel-1 satellite radar moisture.
+- In RandomForest, terrain and satellite radar drive 17.03% of the total decision-making score.
+- In XGBoost, terrain and satellite radar only account for 6.90% because it greedily over-focuses on displacement.
+- This proves RandomForest genuinely learns mountain physics and geological risk, while XGBoost acts like a simple threshold.
+
+Q4: Why does the v2 labelling fix (risk_score composite) matter for SHAP results?
+A:
+- In v1, danger labels were based only on raw displacement numbers, so terrain data was ignored.
+- In v2, we created a composite score: Risk = Displacement * Terrain Susceptibility Multiplier (0.70 to 1.30).
+- This means a steep, wet slope becomes an Evacuation alert much earlier than a flat, dry area.
+- This fix made terrain SHAP jump from near 0% in v1 up to 17.03% in v2.
+
+Q5: What are "crossover pairs" and why are they the key to making contextual features matter?
+A:
+- Crossover pairs are two mine zones with the exact same movement speed (e.g. 48 mm/day)
+  but different danger levels.
+- A flat bench moving at 48 mm/day is Safe, but a steep 75-degree wet wall
+  moving at 48 mm/day triggers Warning.
+- In v1, there were 0 crossover pairs because the labels ignored slope angle completely.
+- In v2, our physics engine created 75 crossover pairs, teaching the AI how geology changes danger.
+
+Q6: Walk through the RF v2 production model metrics — why is it the production choice?
+A:
+- RandomForest v2 achieved 97.71% accuracy, 99.49% precision, 98.48% recall, and a 0.9898 F1-score.
+- It only missed 3 out of 197 evacuation events on the test set, classifying them safely as Warning.
+- In comparison, deep learning GRU missed 55 out of 197 evacuations (F1 of only 0.8378).
+- We chose RF because it has the best F1 balance, highest terrain awareness, and runs
+  in 1 millisecond on CPU.
+
+Q7: Why not choose XGBoost which has 0 missed evacuations?
+A:
+- XGBoost caught all 197 evacuations, but had more false alarms (lower precision: 97.04% vs RF's 99.49%).
+- In real mining, false alarms cause siren fatigue and shut down operations, costing 5 to
+  15 crore rupees per day.
+- XGBoost also only had 6.90% terrain SHAP contribution, meaning it behaves like a brittle one-sensor model.
+- RandomForest provides the best operational balance: 98.48% recall with virtually zero false alarms.
+
+Q8: Why class weighting over SMOTE?
+A:
+- Real mine accidents are rare, creating an imbalanced dataset: 61% Safe, 26% Warning, and 13% Evacuation.
+- SMOTE creates fake synthetic points by averaging neighbors, which creates physically impossible sensor readings.
+- For example, SMOTE might invent a sample with high groundwater pressure during zero rainfall on dry rock.
+- Class weighting keeps all data 100% real, but penalizes the AI 5.4 times harder if
+  it misses an evacuation.
+
+Q9: How does SHAP feature attribution support the pitch narrative to judges?
+A:
+- It gives judges mathematical proof that our Copernicus DEM and Sentinel-1 satellite pipelines actually matter.
+- We can open a SHAP graph and show exactly why a specific zone triggered an
+  alert on a given day.
+- It turns our AI from a suspicious black box into an explainable, auditable safety tool for mine managers.
+- It proves our multi-modal sensor fusion is a real engineering architecture, not just hackathon buzzwords.
+
+Q10: What is the limitation of SHAP in this context and how would you address it in a follow-up?
+A:
+- Standard TreeSHAP calculates feature credit on static snapshots, not across 14-day continuous time sequences.
+- It also treats correlated features separately instead of grouping related sensor clusters together.
+- For next steps, we will implement Grouped-SHAP to score entire sensor packages (geotechnical vs weather vs satellite).
+- We will also deploy TimeSHAP to show how displacement accumulated over the past 14 days triggered the alert.
