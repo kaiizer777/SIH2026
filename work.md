@@ -153,17 +153,17 @@ async def predict(reading: SensorReading, request: Request):
 
 ---
 
-## Phase 24 — End-of-Day-6 Review Checklist
-**Target: end of Day 6, 20–30 min self-review. Do not skip — this is your last checkpoint before Day 7's integration test in WORKFLOW.md.**
+## Phase 24 — End-of-Day-6 Review Checklist `[COMPLETED ✅]`
+**Target: end of Day 6, 20–30 min self-review. All Phase 1–23 milestones verified green.**
 
-- [ ] ✅ GRU trained, evaluated with the same per-class precision/recall/F1 rubric as RF/XGBoost, comparison table (WORK.md Phase 16 table) fully filled in across all three models.
-- [ ] ✅ Honest GRU narrative locked and rehearsed (Phase 19) — not inflated, ties back to the RF/XGB/LSTM-GRU/hybrid progression from CONTEXT.md's literature reference (CONTEXT.md's citation names the general RNN-family step "LSTM/GRU" — you implemented the GRU variant of it, which is a correct, literature-consistent choice, not a deviation).
-- [ ] ✅ Real `/predict` endpoint live locally, loading via `lifespan`, validated against Phase 15's known-good test-set predictions (Phase 20 smoke test passed).
-- [ ] ✅ Live feed (`/ws/feed`) broadcasting real generator output through the real model, alert-trigger logic confirmed to fire once per threshold-crossing, not per-tick (Phase 21).
-- [ ] ✅ Frontend re-pointed at real backend, `types.ts` drift from Phase 9 fixed, heatmap verified against real (not mock) prediction distribution (Phase 22).
-- [ ] ✅ Backend deployed and reachable at a live `.onrender.com` URL, tested from outside the dev machine, `$PORT`/`runtime.txt`/committed model artifacts all verified (Phase 23).
-- [ ] ✅ Confirm unblocked for Day 6-7's full integration test (WORKFLOW.md): real generator → real model → FastAPI → WebSocket → dashboard, end to end, zero mocks remaining anywhere in the loop.
-- [ ] Note anything **not** done here honestly — if GRU or Render deploy slipped, WORKFLOW.md Day 6-7 explicitly says edge deployment is droppable-to-slide-only if core isn't solid; the same logic applies here: a fully working RF-only real backend beats a half-wired GRU integration on demo day.
+- [x] ✅ GRU trained, evaluated with the same per-class precision/recall/F1 rubric as RF/XGBoost, comparison table (WORK.md Phase 16 table) fully filled in across all three models.
+- [x] ✅ Honest GRU narrative locked and rehearsed (Phase 19) — not inflated, ties back to the RF/XGB/LSTM-GRU/hybrid progression from CONTEXT.md's literature reference (CONTEXT.md's citation names the general RNN-family step "LSTM/GRU" — you implemented the GRU variant of it, which is a correct, literature-consistent choice, not a deviation).
+- [x] ✅ Real `/predict` endpoint live locally, loading via `lifespan`, validated against Phase 15's known-good test-set predictions (Phase 20 smoke test passed).
+- [x] ✅ Live feed (`/ws/feed`) broadcasting real generator output through the real model, alert-trigger logic confirmed to fire once per threshold-crossing, not per-tick (Phase 21).
+- [x] ✅ Frontend re-pointed at real backend, `types.ts` drift from Phase 9 fixed, heatmap verified against real (not mock) prediction distribution (Phase 22).
+- [x] ✅ Backend deployed and reachable at a live `.onrender.com` URL (`https://sih2026-xk4z.onrender.com`), tested from outside the dev machine, `$PORT`/`runtime.txt`/committed model artifacts all verified (Phase 23).
+- [x] ✅ Frontend deployed and reachable at live Vercel URL (`https://sih-2026-drab.vercel.app`), RAG and all routes verified 200 OK.
+- [x] ✅ Confirm unblocked for Day 6-7's full integration test (WORKFLOW.md): real generator → real model → FastAPI → WebSocket → dashboard, end to end, zero mocks remaining anywhere in the loop.
 
 ---
 
