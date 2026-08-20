@@ -3,86 +3,163 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { TopBar } from '@/components/topbar/TopBar';
+import { ChapterHeader } from '@/components/ui/ChapterHeader';
 
 // Dynamically import PitHeatmap since MapLibre uses browser window/canvas
 const PitHeatmap = dynamic(() => import('@/components/map/PitHeatmap'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-[500px] flex items-center justify-center bg-slate-900/50 rounded-xl border border-slate-800 animate-pulse text-slate-400">
+    <div className="w-full h-[520px] flex items-center justify-center bg-[#FBFBFD] rounded-2xl border border-[#E6E8EE] animate-pulse text-[#5B6472] font-mono text-sm">
       Loading Open-Pit 3D Heatmap...
     </div>
   ),
 });
 
+const metrics = [
+  {
+    label: 'Active Sensors',
+    value: '24 / 24',
+    status: '100% Operational',
+    tone: 'safe',
+  },
+  {
+    label: 'Critical Sectors',
+    value: '1 Zone',
+    status: 'North Highwall (Evac)',
+    tone: 'danger',
+  },
+  {
+    label: 'Max Velocity',
+    value: '1.80 mm/d',
+    status: 'Inverse-Vel Trigger',
+    tone: 'warning',
+  },
+  {
+    label: 'Model Confidence',
+    value: '94.8%',
+    status: 'Ensemble (GRU + XGB)',
+    tone: 'ink',
+  },
+];
+
+const sectorRisks = [
+  { id: 'Z01', name: 'North Highwall - Bench 4', risk: 'Evacuation', score: '0.88', status: 'Active Siren' },
+  { id: 'Z02', name: 'East Haul Road - Ramp 2', risk: 'Warning', score: '0.58', status: 'Under Watch' },
+  { id: 'Z03', name: 'South Slope Bench', risk: 'Safe', score: '0.12', status: 'Nominal' },
+  { id: 'Z04', name: 'West Pit Crest', risk: 'Safe', score: '0.08', status: 'Nominal' },
+];
+
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-8 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-        <div>
-          <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono tracking-wide uppercase">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            SIH25071 • Live Pit Monitoring
+    <div className="min-h-screen text-[#0B1220]" style={gradientStyle}>
+      <TopBar showSearch={false} activeRoute="/dashboard" />
+
+      <main className="max-w-5xl mx-auto px-5 sm:px-6 md:px-10 pb-24 pt-6 md:pt-10 space-y-10">
+        <ChapterHeader
+          num="LIVE"
+          title="Open-Pit Spatial Risk Dashboard"
+          subtitle="Real-time 3D telemetry visualization, inverse-velocity displacement modeling, and zone-level rockfall risk scoring."
+        />
+
+        {/* 4-Stat Hairline Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-[#E6E8EE] border border-[#E6E8EE] rounded-2xl overflow-hidden shadow-sm">
+          {metrics.map((m) => {
+            const toneColor =
+              m.tone === 'safe'
+                ? '#047857'
+                : m.tone === 'danger'
+                ? '#B91C1C'
+                : m.tone === 'warning'
+                ? '#B45309'
+                : '#2563EB';
+
+            return (
+              <div key={m.label} className="bg-white p-5 space-y-2">
+                <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-[#8A93A1]">
+                  {m.label}
+                </div>
+                <div className="text-[26px] font-semibold tracking-[-0.02em] text-[#0B1220] font-mono">
+                  {m.value}
+                </div>
+                <div className="text-[12px] font-medium" style={{ color: toneColor }}>
+                  {m.status}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Main Map Container */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-[18px] md:text-[20px] font-semibold tracking-[-0.01em] text-[#0B1220]">
+              Pit Spatial Heatmap
+            </h2>
+            <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-[#8A93A1]">
+              MapLibre WebGL • Live GPS
+            </span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1 text-slate-50">
-            Open-Pit Spatial Risk Dashboard
-          </h1>
-          <p className="text-slate-400 text-sm mt-0.5">
-            Geotechnical radar & multi-sensor slope stability analysis
-          </p>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <Link
-            href="/alerts"
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
-          >
-            View Alerts
-          </Link>
-          <Link
-            href="/trends"
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-sky-600 hover:bg-sky-500 text-white transition shadow-lg shadow-sky-900/30"
-          >
-            Telemetry Trends →
-          </Link>
-        </div>
-      </div>
+          <PitHeatmap />
+        </section>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-          <div className="text-xs text-slate-400 uppercase tracking-wider">Active Sensors</div>
-          <div className="text-2xl font-bold text-slate-100 mt-1">24 / 24</div>
-          <div className="text-xs text-emerald-400 mt-1">100% Operational</div>
-        </div>
+        {/* Hairline Sector Status Table / Rows */}
+        <section className="space-y-4 pt-4">
+          <div className="flex items-baseline justify-between border-b border-[#E6E8EE] pb-3">
+            <h2 className="text-[18px] md:text-[20px] font-semibold tracking-[-0.01em] text-[#0B1220]">
+              Key Sector Status Audit
+            </h2>
+            <Link
+              href="/alerts"
+              className="text-[12px] text-[#2563EB] font-medium hover:underline"
+            >
+              View Full Alert Dispatch Log →
+            </Link>
+          </div>
 
-        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-          <div className="text-xs text-slate-400 uppercase tracking-wider">Critical Sectors</div>
-          <div className="text-2xl font-bold text-rose-400 mt-1">1 Zone</div>
-          <div className="text-xs text-rose-400/80 mt-1">North Highwall (Evacuation)</div>
-        </div>
+          <div className="divide-y divide-[#E6E8EE]">
+            {sectorRisks.map((sec) => (
+              <div key={sec.id} className="py-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <span className="text-[11px] font-mono text-[#8A93A1] w-10 text-right">
+                    {sec.id}
+                  </span>
+                  <div>
+                    <div className="text-[14.5px] font-medium text-[#0B1220]">{sec.name}</div>
+                    <div className="text-[12px] text-[#5B6472] font-mono">
+                      Risk Score: <strong className="text-[#0B1220]">{sec.score}</strong>
+                    </div>
+                  </div>
+                </div>
 
-        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-          <div className="text-xs text-slate-400 uppercase tracking-wider">Max Velocity</div>
-          <div className="text-2xl font-bold text-amber-400 mt-1">1.80 mm/day</div>
-          <div className="text-xs text-amber-400/80 mt-1">Accelerating (Inverse-Vel model)</div>
-        </div>
-
-        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-          <div className="text-xs text-slate-400 uppercase tracking-wider">Model Confidence</div>
-          <div className="text-2xl font-bold text-sky-400 mt-1">94.8%</div>
-          <div className="text-xs text-sky-400/80 mt-1">Ensemble (GRU + XGBoost)</div>
-        </div>
-      </div>
-
-      {/* Main Heatmap Section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-200">Pit Spatial Heatmap</h2>
-          <span className="text-xs font-mono text-slate-400">MapLibre Engine • WebGL</span>
-        </div>
-        <PitHeatmap />
-      </div>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`text-[10px] font-mono uppercase tracking-[0.14em] px-2.5 py-0.5 rounded-full border ${
+                      sec.risk === 'Evacuation'
+                        ? 'bg-rose-50 text-[#B91C1C] border-rose-200'
+                        : sec.risk === 'Warning'
+                        ? 'bg-amber-50 text-[#B45309] border-amber-200'
+                        : 'bg-emerald-50 text-[#047857] border-emerald-200'
+                    }`}
+                  >
+                    {sec.risk}
+                  </span>
+                  <span className="hidden sm:inline-block text-[12px] text-[#5B6472] font-medium">
+                    {sec.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
+
+const gradientStyle: React.CSSProperties = {
+  background:
+    'radial-gradient(1200px 600px at 50% -200px, #EFF4FF 0%, #F7F9FF 35%, #FFFFFF 70%)',
+  backgroundAttachment: 'fixed',
+};

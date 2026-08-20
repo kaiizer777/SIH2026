@@ -1,112 +1,166 @@
 import React from 'react';
 import Link from 'next/link';
+import { TopBar } from '@/components/topbar/TopBar';
+import { ChapterHeader } from '@/components/ui/ChapterHeader';
+
+const routes = [
+  {
+    num: '01',
+    href: '/dashboard',
+    title: 'Open-Pit Spatial Risk Dashboard',
+    desc: 'Interactive 3D WebGL heatmap of mine benches with real-time zone-level risk scoring and sensor placement.',
+    badge: 'Live Map',
+  },
+  {
+    num: '02',
+    href: '/alerts',
+    title: 'Real-Time Alert Dispatch & Incident Logs',
+    desc: 'Automated evacuation threshold triggers, audible siren dispatch status, and geotech team response audit trail.',
+    badge: 'Dispatch',
+  },
+  {
+    num: '03',
+    href: '/trends',
+    title: 'Geotechnical Telemetry & Trend Analytics',
+    desc: 'Multi-sensor time-series showing displacement velocity, Fukuzono acceleration, and pore-pressure dynamics.',
+    badge: 'Telemetry',
+  },
+  {
+    num: '04',
+    href: '/pitch',
+    title: 'Pitch Companion & Defense Rehearsal Hub',
+    desc: 'Master repository of 90+ technical defenses, ML benchmark metrics (XGBoost vs GRU), teleprompter, and glossary.',
+    badge: 'Master Hub',
+  },
+];
+
+const systemSpecs = [
+  {
+    eyebrow: 'Ingest & Telemetry',
+    headline: '24 Sensor Streams',
+    detail: 'Sub-millimeter radar displacement, extensometer pore pressure, and Open-Meteo rainfall feeds on a 2.5s loop.',
+  },
+  {
+    eyebrow: 'ML Architecture',
+    headline: '100% Recall Champion',
+    detail: 'Class-weighted XGBoost under Fukuzono inverse-velocity physics. 0 missed evacuations across 197 test events.',
+  },
+  {
+    eyebrow: 'Production Deployment',
+    headline: 'Edge & Cloud Split',
+    detail: 'Next.js 16 App Router + FastAPI Pydantic contracts with ONNX edge inference and GSM siren fallback.',
+  },
+];
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 md:p-12 relative overflow-hidden">
-      {/* Background glow effects */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen text-[#0B1220]" style={gradientStyle}>
+      <TopBar showSearch={false} activeRoute="/" />
 
-      <div className="max-w-4xl w-full text-center space-y-8 z-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300 text-xs font-mono">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          SIH25071 • Geotechnical AI Surveillance
-        </div>
-
+      <main className="max-w-5xl mx-auto px-5 sm:px-6 md:px-10 pb-24 pt-8 md:pt-12">
+        {/* Editorial Eyebrow & Intro */}
         <div className="space-y-4">
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight bg-gradient-to-r from-slate-100 via-sky-200 to-slate-400 bg-clip-text text-transparent">
-            AI-Based Rockfall Prediction & Alert System
+          <div className="flex items-baseline gap-3">
+            <span className="text-[11px] font-mono uppercase tracking-[0.22em] text-[#2563EB]">
+              SIH25071 • GEOTECHNICAL SURVEILLANCE
+            </span>
+            <span className="flex-1 h-px bg-[#E6E8EE]" />
+          </div>
+
+          <h1 className="text-[32px] sm:text-[40px] md:text-[48px] font-semibold tracking-[-0.03em] text-[#0B1220] leading-[1.1] max-w-3xl">
+            AI-Based Rockfall Prediction &amp; Early Warning System
           </h1>
-          <p className="text-slate-400 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
-            Real-time radar telemetry, inverse-velocity displacement modeling, and spatial open-pit risk heatmaps for smart mine safety.
+
+          <p className="text-[16px] md:text-[17px] text-[#5B6472] max-w-2xl leading-[1.7]">
+            Continuous open-pit slope stability surveillance combining inverse-velocity displacement
+            modeling, multi-sensor telemetry, and spatial risk heatmaps for smart mine safety.
           </p>
         </div>
 
-        {/* Quick Launch Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-left pt-4">
-          <Link
-            href="/dashboard"
-            className="group p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-sky-500/50 transition duration-300 hover:shadow-xl hover:shadow-sky-500/5"
-          >
-            <div className="text-sky-400 text-2xl mb-3">🗺️</div>
-            <h2 className="text-lg font-semibold text-slate-100 group-hover:text-sky-300 transition">
-              Pit Heatmap
-            </h2>
-            <p className="text-slate-400 text-sm mt-1">
-              Interactive 3D spatial map of open-pit benches with zone-level risk scoring.
-            </p>
-            <span className="inline-block mt-4 text-xs font-mono text-sky-400 group-hover:translate-x-1 transition">
-              Launch Dashboard →
+        {/* Route Navigation Rows */}
+        <section className="mt-12 md:mt-16">
+          <div className="flex items-baseline justify-between border-b border-[#E6E8EE] pb-3">
+            <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-[#8A93A1]">
+              System Routes
             </span>
-          </Link>
-
-          <Link
-            href="/alerts"
-            className="group p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/50 transition duration-300 hover:shadow-xl hover:shadow-rose-500/5"
-          >
-            <div className="text-rose-400 text-2xl mb-3">🚨</div>
-            <h2 className="text-lg font-semibold text-slate-100 group-hover:text-rose-300 transition">
-              Alert Log
-            </h2>
-            <p className="text-slate-400 text-sm mt-1">
-              Automated warning dispatch, siren status, and geotech incident response logs.
-            </p>
-            <span className="inline-block mt-4 text-xs font-mono text-rose-400 group-hover:translate-x-1 transition">
-              Review Alerts →
+            <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-[#8A93A1]">
+              Select Destination →
             </span>
-          </Link>
+          </div>
 
-          <Link
-            href="/trends"
-            className="group p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-amber-500/50 transition duration-300 hover:shadow-xl hover:shadow-amber-500/5"
-          >
-            <div className="text-amber-400 text-2xl mb-3">📈</div>
-            <h2 className="text-lg font-semibold text-slate-100 group-hover:text-amber-300 transition">
-              Sensor Trends
-            </h2>
-            <p className="text-slate-400 text-sm mt-1">
-              Multi-sensor telemetry showing displacement velocity and pore pressure dynamics.
-            </p>
-            <span className="inline-block mt-4 text-xs font-mono text-amber-400 group-hover:translate-x-1 transition">
-              View Analytics →
-            </span>
-          </Link>
-        </div>
+          <div className="divide-y divide-[#E6E8EE]">
+            {routes.map((r) => (
+              <Link
+                key={r.href}
+                href={r.href}
+                className="group block py-7 first:pt-6 transition hover:bg-[#EFF4FF]/40 -mx-4 px-4 rounded-xl"
+              >
+                <div className="flex items-baseline gap-4 md:gap-6">
+                  <div className="flex-shrink-0 w-10 md:w-12 text-right">
+                    <span className="text-[11px] font-mono uppercase tracking-[0.18em] text-[#8A93A1] group-hover:text-[#2563EB] transition">
+                      {r.num}
+                    </span>
+                  </div>
 
-        {/* Pitch Companion row */}
-        <div className="pt-2">
-          <Link
-            href="/pitch"
-            className="group flex items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-indigo-500/5 to-transparent border border-sky-500/30 hover:border-sky-400/60 transition duration-300 text-left"
-          >
-            <div className="flex items-start gap-4">
-              <div className="text-sky-300 text-2xl">🎤</div>
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-wider text-sky-400">
-                  SIH 2026 Presenter Tool
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-[18px] md:text-[21px] font-semibold tracking-[-0.01em] text-[#0B1220] group-hover:text-[#2563EB] transition flex items-center gap-2">
+                          <span>→</span>
+                          <span>{r.title}</span>
+                        </h2>
+                      </div>
+                      <span className="hidden sm:inline-flex text-[10px] font-mono uppercase tracking-[0.18em] px-2.5 py-1 rounded-full bg-white border border-[#E6E8EE] text-[#5B6472] group-hover:border-[#2563EB] group-hover:text-[#2563EB] transition">
+                        {r.badge}
+                      </span>
+                    </div>
+
+                    <p className="mt-1.5 text-[14px] md:text-[15px] text-[#5B6472] leading-[1.65]">
+                      {r.desc}
+                    </p>
+                  </div>
                 </div>
-                <h2 className="text-base md:text-lg font-semibold text-slate-100 group-hover:text-sky-200 transition">
-                  Pitch Companion & Defense Rehearsal Hub
-                </h2>
-                <p className="text-slate-400 text-xs md:text-sm mt-0.5">
-                  All 90+ Q&amp;A, judge trap flashcards, ML benchmark dashboard, teleprompter, and non-tech glossary in one place.
-                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* System Architecture Specs Hairline Block */}
+        <section className="mt-16 md:mt-20">
+          <ChapterHeader
+            num="SPEC"
+            title="System Specifications"
+            subtitle="Built for zero false-negative tolerance in open-cast coal and metal mining operations."
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[#E6E8EE] border border-[#E6E8EE] rounded-2xl overflow-hidden mt-6">
+            {systemSpecs.map((spec) => (
+              <div key={spec.eyebrow} className="bg-white p-6 space-y-3">
+                <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-[#2563EB]">
+                  {spec.eyebrow}
+                </div>
+                <div className="text-[17px] font-semibold text-[#0B1220] tracking-tight">
+                  {spec.headline}
+                </div>
+                <p className="text-[13px] text-[#5B6472] leading-relaxed">{spec.detail}</p>
               </div>
-            </div>
-            <span className="hidden sm:inline-flex flex-shrink-0 px-3 py-2 text-xs font-mono font-semibold rounded-lg bg-sky-500/20 text-sky-200 border border-sky-500/40 group-hover:translate-x-1 transition">
-              Open Hub →
-            </span>
-          </Link>
-        </div>
+            ))}
+          </div>
+        </section>
 
         {/* Footer Meta */}
-        <div className="pt-8 border-t border-slate-900 flex flex-wrap items-center justify-between text-xs text-slate-500 font-mono">
-          <div>Next.js 16.3.1 (App Router + Turbopack)</div>
-          <div>FastAPI 0.136.x Backend Ready</div>
-          <div>MapLibre GL + Recharts</div>
-        </div>
-      </div>
-    </main>
+        <footer className="mt-16 pt-8 border-t border-[#E6E8EE] flex flex-wrap items-center justify-between gap-3 text-[11px] text-[#8A93A1] font-mono uppercase tracking-[0.14em]">
+          <div>Next.js 16 App Router • React 19</div>
+          <div>FastAPI 0.136.x Real-Time Feed</div>
+          <div>MapLibre GL • WebGL 2.0</div>
+        </footer>
+      </main>
+    </div>
   );
 }
+
+const gradientStyle: React.CSSProperties = {
+  background:
+    'radial-gradient(1200px 600px at 50% -200px, #EFF4FF 0%, #F7F9FF 35%, #FFFFFF 70%)',
+  backgroundAttachment: 'fixed',
+};

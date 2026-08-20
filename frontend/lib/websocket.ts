@@ -71,8 +71,28 @@ export class SensorWebSocketClient<T = WebSocketMessage> {
       this.reconnectTimer = null;
     }
     if (this.ws) {
-      this.ws.close();
+      const socket = this.ws;
       this.ws = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.onclose = null;
+
+      if (socket.readyState === WebSocket.OPEN) {
+        try {
+          socket.close();
+        } catch {
+          // ignore
+        }
+      } else if (socket.readyState === WebSocket.CONNECTING) {
+        // Suppress browser warning by closing once handshake finishes
+        socket.onopen = () => {
+          try {
+            socket.close();
+          } catch {
+            // ignore
+          }
+        };
+      }
     }
     this.notifyStatus('closed');
   }
