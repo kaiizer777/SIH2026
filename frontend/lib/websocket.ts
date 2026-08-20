@@ -1,7 +1,9 @@
+import { WebSocketMessage } from './types';
+
 type MessageHandler<T> = (data: T) => void;
 type StatusHandler = (status: 'connecting' | 'open' | 'closed' | 'error') => void;
 
-export class SensorWebSocketClient<T = unknown> {
+export class SensorWebSocketClient<T = WebSocketMessage> {
   private ws: WebSocket | null = null;
   private url: string;
   private reconnectIntervalMs: number;
@@ -11,7 +13,7 @@ export class SensorWebSocketClient<T = unknown> {
   private reconnectTimer: NodeJS.Timeout | null = null;
 
   constructor(url?: string, reconnectIntervalMs: number = 3000) {
-    const defaultWsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws';
+    const defaultWsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8001/ws/feed';
     this.url = url || defaultWsUrl;
     this.reconnectIntervalMs = reconnectIntervalMs;
   }

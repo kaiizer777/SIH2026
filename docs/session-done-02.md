@@ -103,13 +103,13 @@ Three corrections folded in below (⚠️) — one is a real bug risk in your cu
 - [x] ✅ **Confirmed**: Unblocked for Day 4–6. Backend mock `/predict` can be safely swapped for the real `v2` artifacts, and LSTM/GRU benchmarking can begin against this identical test split and metric baseline.
 
 ### Model Evaluation: Test Set Comparison
-| Metric (Evacuation Class) | RandomForest (v2) | XGBoost (v2) | LSTM/GRU (Target) |
-|---------------------------|-------------------|--------------|-------------------|
-| **Precision** | 0.9949 | 0.9704 | *TBD* |
-| **Recall** | 0.9848 | 1.0000 | *TBD* |
-| **F1-Score** | 0.9898 | 0.9850 | *TBD* |
-| **Missed Evacuations** | 3 (out of 197) | 0 (out of 197) | *TBD* |
-| **Terrain/SAR SHAP** | 17.03% | 6.90% | *TBD* |
+| Metric (Evacuation Class) | RandomForest (v2) | XGBoost (v2) | GRU |
+|---|---|---|---|
+| **Precision** | 0.9949 | 0.9704 | 1.0000 |
+| **Recall** | 0.9848 | 1.0000 | 0.7208 |
+| **F1-Score** | 0.9898 | 0.9850 | 0.8378 |
+| **Missed Evacuations** | 3 (out of 197) | 0 (out of 197) | 55 (out of 197) |
+| **Terrain/SAR SHAP** | 17.03% | 6.90% | N/A — not computed for sequence model, out of Day 4-6 scope |
 
 ---
 

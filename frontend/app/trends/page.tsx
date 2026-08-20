@@ -40,6 +40,7 @@ export default function TrendsPage() {
       <div className="grid grid-cols-1 gap-6">
         <TrendChart
           title="North Highwall Sector (Critical Failure Risk Area)"
+          zoneId="zone_01"
           data={[
             { time: '08:00', displacement: 1.2, velocity: 0.08, porePressure: 38 },
             { time: '10:00', displacement: 1.6, velocity: 0.11, porePressure: 42 },
@@ -53,6 +54,7 @@ export default function TrendsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <TrendChart
             title="East Haul Road (Haulage Safety Corridor)"
+            zoneId="zone_02"
             data={[
               { time: '08:00', displacement: 0.5, velocity: 0.02, porePressure: 22 },
               { time: '10:00', displacement: 0.6, velocity: 0.03, porePressure: 24 },
@@ -65,6 +67,7 @@ export default function TrendsPage() {
 
           <TrendChart
             title="South Slope Crest (Baseline Stability)"
+            zoneId="zone_03"
             data={[
               { time: '08:00', displacement: 0.2, velocity: 0.01, porePressure: 15 },
               { time: '10:00', displacement: 0.2, velocity: 0.01, porePressure: 15 },

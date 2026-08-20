@@ -1,12 +1,27 @@
-import React from 'react';
-import Link from 'next/link';
-import { Alert } from '@/types';
+'use client';
 
-const mockAlerts: Alert[] = [
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { SensorWebSocketClient } from '@/lib/websocket';
+import { AlertEventMessage } from '@/lib/types';
+
+// Map backend AlertEvent to UI Alert structure
+interface UIAlert {
+  id: string;
+  timestamp: string;
+  level: string; // 'evacuation' | 'warning' | 'advisory' | 'safe'
+  zone: string;
+  sensorId: string;
+  message: string;
+  probability: number;
+  status: string;
+}
+
+const mockAlerts: UIAlert[] = [
   {
     id: 'ALT-9042',
-    timestamp: '2026-08-19T14:15:00Z',
-    level: 'Evacuation',
+    timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+    level: 'evacuation',
     zone: 'North Highwall - Bench 4',
     sensorId: 'RADAR-01',
     message: 'Inverse-velocity threshold breached: 1.8mm/day acceleration detected. Immediate evacuation recommended.',
@@ -15,8 +30,8 @@ const mockAlerts: Alert[] = [
   },
   {
     id: 'ALT-9041',
-    timestamp: '2026-08-19T13:45:00Z',
-    level: 'Warning',
+    timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    level: 'warning',
     zone: 'East Haul Road - Ramp 2',
     sensorId: 'EXT-08',
     message: 'Extensometer pore pressure surge (+32 kPa) following rainfall event.',
@@ -25,8 +40,8 @@ const mockAlerts: Alert[] = [
   },
   {
     id: 'ALT-9039',
-    timestamp: '2026-08-19T10:12:00Z',
-    level: 'Safe',
+    timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    level: 'safe',
     zone: 'South Slope Bench',
     sensorId: 'SEIS-03',
     message: 'Micro-seismic tremors normalized below background baseline.',
@@ -36,6 +51,39 @@ const mockAlerts: Alert[] = [
 ];
 
 export default function AlertsPage() {
+  const [alerts, setAlerts] = useState<UIAlert[]>([]);
+
+  useEffect(() => {
+    setAlerts(mockAlerts);
+
+    const wsClient = new SensorWebSocketClient();
+    
+    const unsubscribe = wsClient.onMessage((msg) => {
+      if (msg.type === 'alert_event') {
+        const { alert, timestamp } = msg as AlertEventMessage;
+        
+        const newAlert: UIAlert = {
+          id: alert.alert_id,
+          timestamp: alert.triggered_at || timestamp,
+          level: alert.severity,
+          zone: alert.zone_id,
+          sensorId: 'SYS-MON',
+          message: alert.message,
+          probability: alert.severity === 'evacuation' ? 0.9 : alert.severity === 'warning' ? 0.6 : 0.2,
+          status: alert.acknowledged ? 'acknowledged' : 'active',
+        };
+        
+        setAlerts((prev) => [newAlert, ...prev].slice(0, 50)); // keep latest 50
+      }
+    });
+
+    wsClient.connect();
+    return () => {
+      unsubscribe();
+      wsClient.disconnect();
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-8 space-y-6">
       {/* Header */}
@@ -71,13 +119,17 @@ export default function AlertsPage() {
 
       {/* Alert Cards */}
       <div className="space-y-4">
-        {mockAlerts.map((alert) => {
-          const badgeColor =
-            alert.level === 'Evacuation'
-              ? 'bg-red-500/20 text-red-400 border-red-500/40'
-              : alert.level === 'Warning'
-              ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
-              : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+        {alerts.map((alert) => {
+          let badgeColor = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'; // safe
+          
+          if (alert.level.toLowerCase() === 'evacuation') {
+            badgeColor = 'bg-red-500/20 text-red-400 border-red-500/40';
+          } else if (alert.level.toLowerCase() === 'warning') {
+            badgeColor = 'bg-amber-500/20 text-amber-400 border-amber-500/40';
+          } else if (alert.level.toLowerCase() === 'advisory') {
+            // Distinct visual style for advisory (blue/cyan) to differentiate from emergencies
+            badgeColor = 'bg-sky-500/20 text-sky-400 border-sky-500/40';
+          }
 
           return (
             <div
@@ -102,9 +154,14 @@ export default function AlertsPage() {
               </div>
 
               <div className="flex items-center gap-2 self-start md:self-center">
-                {alert.status === 'active' && (
+                {alert.status === 'active' && alert.level !== 'advisory' && alert.level !== 'safe' && (
                   <button className="px-3 py-1.5 text-xs font-medium rounded-lg bg-rose-600 hover:bg-rose-500 text-white transition">
                     Acknowledge & Siren
+                  </button>
+                )}
+                {alert.status === 'active' && alert.level === 'advisory' && (
+                  <button className="px-3 py-1.5 text-xs font-medium rounded-lg bg-sky-600/50 hover:bg-sky-500/70 text-white transition border border-sky-500/50">
+                    Acknowledge Advisory
                   </button>
                 )}
                 <button className="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">

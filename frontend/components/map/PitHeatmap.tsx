@@ -1,29 +1,103 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import Map, { Source, Layer, NavigationControl } from 'react-map-gl/maplibre';
 import type { LayerProps } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { PitZoneRisk } from '@/types';
+import { SensorWebSocketClient } from '@/lib/websocket';
+import { RiskLevel, WebSocketMessage } from '@/lib/types';
+
+interface PitZoneRisk {
+  zoneId: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  riskScore: number;
+  riskLevel: RiskLevel;
+  activeSensors: number;
+  lastUpdated: string;
+}
 
 interface PitHeatmapProps {
-  zones?: PitZoneRisk[];
   center?: { longitude: number; latitude: number };
   zoom?: number;
 }
 
-const defaultZones: PitZoneRisk[] = [
-  { zoneId: 'Z-01', name: 'North Highwall', latitude: 23.7957, longitude: 86.4304, riskScore: 0.85, riskLevel: 'Evacuation', activeSensors: 8, lastUpdated: new Date().toISOString() },
-  { zoneId: 'Z-02', name: 'East Haul Road', latitude: 23.7920, longitude: 86.4350, riskScore: 0.55, riskLevel: 'Warning', activeSensors: 5, lastUpdated: new Date().toISOString() },
-  { zoneId: 'Z-03', name: 'South Slope Bench', latitude: 23.7880, longitude: 86.4290, riskScore: 0.15, riskLevel: 'Safe', activeSensors: 6, lastUpdated: new Date().toISOString() },
-  { zoneId: 'Z-04', name: 'West Pit Crest', latitude: 23.7910, longitude: 86.4220, riskScore: 0.20, riskLevel: 'Safe', activeSensors: 4, lastUpdated: new Date().toISOString() },
-];
+// Generate static coordinates for the 16 pit zones
+const ZONE_COORDS: Record<string, { lat: number, lon: number, name: string }> = {
+  'zone_01': { lat: 23.7957, lon: 86.4304, name: 'North Highwall (Z1)' },
+  'zone_02': { lat: 23.7920, lon: 86.4350, name: 'East Haul Road (Z2)' },
+  'zone_03': { lat: 23.7880, lon: 86.4290, name: 'South Slope Bench (Z3)' },
+  'zone_04': { lat: 23.7910, lon: 86.4220, name: 'West Pit Crest (Z4)' },
+};
+for (let i = 5; i <= 16; i++) {
+  const row = Math.floor((i - 1) / 4);
+  const col = (i - 1) % 4;
+  const zoneStr = `zone_${i.toString().padStart(2, '0')}`;
+  ZONE_COORDS[zoneStr] = {
+    lat: 23.7957 - (row * 0.003),
+    lon: 86.4220 + (col * 0.004),
+    name: `Sector ${i}`
+  };
+}
+
+const localMapStyle = {
+  version: 8 as const,
+  sources: {},
+  layers: [
+    {
+      id: 'background',
+      type: 'background' as const,
+      paint: {
+        'background-color': '#0b0f19', // Matches the slate-950 background
+      },
+    },
+  ],
+};
 
 export default function PitHeatmap({
-  zones = defaultZones,
   center = { longitude: 86.4304, latitude: 23.7920 },
   zoom = 14,
 }: PitHeatmapProps) {
+  const [zonesMap, setZonesMap] = useState<Record<string, PitZoneRisk>>({});
+
+  useEffect(() => {
+    const wsClient = new SensorWebSocketClient();
+    
+    const unsubscribe = wsClient.onMessage((msg: WebSocketMessage) => {
+      console.log(`[HEATMAP_WS] Received message type: ${msg.type}`);
+      if (msg.type === 'telemetry_update') {
+        const { sensor_reading, risk_prediction, timestamp } = msg;
+        const zid = sensor_reading.zone_id;
+        const coords = ZONE_COORDS[zid] || { lat: center.latitude, lon: center.longitude, name: zid };
+        
+        console.log(`[HEATMAP_WS] Telemetry update for zone: ${zid}, risk: ${risk_prediction.risk_level}`);
+        
+        setZonesMap((prev) => ({
+          ...prev,
+          [zid]: {
+            zoneId: zid,
+            name: coords.name,
+            latitude: coords.lat,
+            longitude: coords.lon,
+            riskScore: risk_prediction.risk_score,
+            riskLevel: risk_prediction.risk_level,
+            activeSensors: 1, // backend has 1 sensor per zone in this sim
+            lastUpdated: timestamp,
+          }
+        }));
+      }
+    });
+
+    wsClient.connect();
+    return () => {
+      unsubscribe();
+      wsClient.disconnect();
+    };
+  }, [center.latitude, center.longitude]);
+
+  const zones = Object.values(zonesMap);
+
   const geojson = useMemo(() => ({
     type: 'FeatureCollection' as const,
     features: zones.map((zone) => ({
@@ -37,7 +111,7 @@ export default function PitHeatmap({
         name: zone.name,
         riskScore: zone.riskScore,
         riskLevel: zone.riskLevel,
-        color: zone.riskLevel === 'Evacuation' ? '#ef4444' : zone.riskLevel === 'Warning' ? '#f59e0b' : '#10b981',
+        color: zone.riskLevel === 'evacuation' ? '#ef4444' : zone.riskLevel === 'warning' ? '#f59e0b' : '#10b981',
       },
     })),
   }), [zones]);
@@ -64,7 +138,7 @@ export default function PitHeatmap({
           zoom: zoom,
         }}
         style={{ width: '100%', height: '100%' }}
-        mapStyle="https://demotiles.maplibre.org/style.json"
+        mapStyle={localMapStyle}
       >
         <NavigationControl position="top-right" />
         <Source id="zones-data" type="geojson" data={geojson}>

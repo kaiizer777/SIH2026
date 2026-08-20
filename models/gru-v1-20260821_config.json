@@ -1,0 +1,52 @@
+{
+  "model_name": "gru-v1-20260821",
+  "architecture": "Single-layer GRU -> Dropout -> Linear",
+  "input_features": 10,
+  "hidden_size": 64,
+  "num_layers": 1,
+  "num_classes": 3,
+  "dropout": 0.2,
+  "window_length": 14,
+  "batch_size": 32,
+  "learning_rate": 0.001,
+  "max_epochs": 100,
+  "patience": 8,
+  "min_delta": 0.0001,
+  "stopped_epoch": 27,
+  "best_epoch": 19,
+  "best_val_loss": 0.0321609786366472,
+  "final_train_loss": 0.13964706910557526,
+  "class_weights": [
+    0.5340785592299332,
+    1.2883895131086143,
+    2.8453267162944584
+  ],
+  "train_class_counts": {
+    "safe": 2147,
+    "warning": 890,
+    "evacuation": 403
+  },
+  "feature_order": [
+    "displacement_mm_day",
+    "vibration",
+    "pore_pressure",
+    "strain",
+    "slope",
+    "aspect",
+    "curvature",
+    "vv_backscatter",
+    "vh_backscatter",
+    "rainfall_mm"
+  ],
+  "label_encoding": {
+    "safe": 0,
+    "warning": 1,
+    "evacuation": 2
+  },
+  "sequence_counts": {
+    "train": 3440,
+    "val": 912,
+    "test": 1136
+  },
+  "history_boundary_policy": "Windows may pull history from an earlier split (e.g. a val-target window reaching back into train dates) but NEVER from a later split. Label/split assignment always follows the target (last-timestep) date only."
+}

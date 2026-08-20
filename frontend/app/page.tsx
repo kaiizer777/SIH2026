@@ -74,6 +74,32 @@ export default function Home() {
           </Link>
         </div>
 
+        {/* Pitch Companion row */}
+        <div className="pt-2">
+          <Link
+            href="/pitch"
+            className="group flex items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-sky-500/10 via-indigo-500/5 to-transparent border border-sky-500/30 hover:border-sky-400/60 transition duration-300 text-left"
+          >
+            <div className="flex items-start gap-4">
+              <div className="text-sky-300 text-2xl">🎤</div>
+              <div>
+                <div className="text-[10px] font-mono uppercase tracking-wider text-sky-400">
+                  SIH 2026 Presenter Tool
+                </div>
+                <h2 className="text-base md:text-lg font-semibold text-slate-100 group-hover:text-sky-200 transition">
+                  Pitch Companion & Defense Rehearsal Hub
+                </h2>
+                <p className="text-slate-400 text-xs md:text-sm mt-0.5">
+                  All 90+ Q&amp;A, judge trap flashcards, ML benchmark dashboard, teleprompter, and non-tech glossary in one place.
+                </p>
+              </div>
+            </div>
+            <span className="hidden sm:inline-flex flex-shrink-0 px-3 py-2 text-xs font-mono font-semibold rounded-lg bg-sky-500/20 text-sky-200 border border-sky-500/40 group-hover:translate-x-1 transition">
+              Open Hub →
+            </span>
+          </Link>
+        </div>
+
         {/* Footer Meta */}
         <div className="pt-8 border-t border-slate-900 flex flex-wrap items-center justify-between text-xs text-slate-500 font-mono">
           <div>Next.js 16.3.1 (App Router + Turbopack)</div>

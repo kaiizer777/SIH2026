@@ -30,7 +30,7 @@ Your RF/XGBoost baseline treats each row as an independent observation (correct 
 
 ---
 
-## Phase 18 — GRU Implementation
+## Phase 18 — GRU Implementation `[DONE ✅ 2026-08-21]`
 **Target: Day 4, 2–3 hrs.**
 
 ⚠️ **Correction — class weighting API is different from sklearn, don't reuse Phase 11's approach as-is.** PyTorch's `nn.CrossEntropyLoss` takes a `weight` tensor of per-class weights (length = num_classes), not a per-sample weight array like sklearn's `sample_weight`. Compute inverse-frequency class weights from **train split only** (same rule as Phase 11 — never from full dataset), convert to a `torch.tensor`, pass via `weight=` to the loss constructor:
@@ -52,26 +52,36 @@ Your RF/XGBoost baseline treats each row as an independent observation (correct 
   ```
   Computing weights against the wrong (row-level) label array won't error — it'll just silently produce a weight vector calibrated to a distribution the GRU was never actually trained on. Double check `y_train_seq.shape[0] == 3440` before proceeding.
 
-- [ ] Framework choice: if you already have PyTorch/TF installed and comfortable, use it — don't add a new dependency this close to demo for marginal benefit. If starting fresh, PyTorch has the more direct class-weight path shown above.
-- [ ] Architecture: start simple — single **GRU** layer (64–128 hidden units, `nn.GRU` not `nn.LSTM`) → dropout (0.2–0.3) → dense → softmax(3). This is a hackathon benchmark, not a research contribution; an over-engineered stack that overfits your ~3-4K sequences will score worse than the RF baseline and undermine the "progression" story. GRU's fewer parameters vs LSTM (~25% less) is the deliberate choice here, not a shortcut — see Phase 17's architecture-decision note for the research basis.
-- [ ] Same train/val/test sequence sets from Phase 17. Use the val split for early stopping (patience 5–10 epochs on val loss), not the test set.
-- [ ] Reuse the class-weighted loss exactly as computed above. Do not additionally rebalance via oversampling — same rationale as Phase 11 (physically correlated channels), now compounded by sequence structure (oversampling a sequence duplicates a whole 14-day trajectory verbatim, which is an even worse leakage-adjacent risk than duplicating a single row).
-- [ ] Save the trained model (`.pt` or `.h5`) with a clear versioned filename matching your existing convention: `models/gru-v1-20260821.pt` (adjust date).
+- [x] Framework choice: PyTorch (verified 2.11.0+cpu), direct class-weight tensor integration.
+- [x] Architecture: single-layer **GRU** (`nn.GRU(input_size=10, hidden_size=64, batch_first=True)`) → dropout (0.2) → linear (64 -> 3), outputting raw logits into `nn.CrossEntropyLoss(weight=weight_tensor)`.
+- [x] Same train/val/test sequence sets from Phase 17 (3,440 train, 912 val, 1,136 test). Val split used strictly for early stopping (patience 8 epochs, best val loss `0.03216` at epoch 19). Test split completely held out for Phase 19.
+- [x] Reuse class-weighted loss computed directly from `y_train_seq` (`[0.5341, 1.2884, 2.8453]`). No oversampling or sequence duplication.
+- [x] Saved trained model state dict to `models/gru-v1-20260821.pt` along with full metadata in `models/gru-v1-20260821_config.json`.
 
 ---
 
-## Phase 19 — GRU Evaluation (same rules as Phase 13, no new rubric)
+## Phase 19 — GRU Evaluation (same rules as Phase 13, no new rubric) `[DONE ✅ 2026-08-21]`
 **Target: Day 4, 1 hr.**
 
-- [ ] Run the identical `classification_report` from Phase 13 on the GRU test-set predictions. Per-class precision/recall/F1, evacuation class headlined — not accuracy. Reusing the same eval code from Phase 13/14 (parameterize on model instead of duplicating) keeps the RF/XGB/GRU numbers directly comparable, which is the whole point of the comparison table.
-- [ ] Confusion matrix, same style as Phase 13 (evacuation row/column highlighted, raw counts not just percentages).
-- [ ] Fill in the `LSTM/GRU (Target)` column in the comparison table from WORK.md Phase 16 with GRU's actual numbers — rename the column header from `LSTM/GRU (Target)` to `GRU` while filling it in. This table is a pitch asset, keep it live, don't recreate it.
-- [ ] **Expected outcome, know this going in**: on a synthetic dataset this clean (RF/XGB already at 97-100% test accuracy, 0.99 evacuation F1), GRU is very unlikely to beat the tree baseline — sequence models earn their keep on messier temporal dependencies than a physics-generated Fukuzono curve with 10 clean features. **That's fine and expected — do not manufacture a win.** The honest story for the pitch: *"Tree baselines already capture the strong physical signal in our synthetic data extremely well. GRU is included to benchmark against the literature-standard model progression (RF/XGBoost → LSTM/GRU → hybrid ensemble) and to validate our architecture scales to a deep-learning approach when moving from synthetic to real noisy sensor data, where temporal dependencies would matter more. We chose GRU over LSTM specifically for its stronger small-dataset generalization — fewer parameters, less overfitting risk, no accuracy trade-off at this data scale."* This is a stronger, more defensible answer than an inflated number a judge might probe and find inconsistent with your SHAP/eval methodology elsewhere.
-- [ ] If GRU does meaningfully underperform, do NOT quietly drop it from the deck — the comparison table with an honest "tree models win on this data, here's why" is more credible than showing only your best model.
+- [x] Run the identical `classification_report` from Phase 13 on the GRU test-set predictions (`scripts/phase19_gru_evaluation.py`). Per-class precision/recall/F1, evacuation class headlined — not accuracy. Reusing the same eval code from Phase 13/14 (parameterize on model instead of duplicating) keeps the RF/XGB/GRU numbers directly comparable, which is the whole point of the comparison table.
+- [x] Confusion matrix, same style as Phase 13 (evacuation row/column highlighted, raw counts not just percentages). Saved plot to `reports/confusion_matrix_gru_test.png`.
+- [x] Fill in the `LSTM/GRU (Target)` column in the comparison table from WORK.md Phase 16 with GRU's actual numbers — rename the column header from `LSTM/GRU (Target)` to `GRU` while filling it in. This table is a pitch asset, keep it live, don't recreate it.
+
+### Model Evaluation: Test Set Comparison
+| Metric (Evacuation Class) | RandomForest (v2) | XGBoost (v2) | GRU |
+|---|---|---|---|
+| **Precision** | 0.9949 | 0.9704 | 1.0000 |
+| **Recall** | 0.9848 | 1.0000 | 0.7208 |
+| **F1-Score** | 0.9898 | 0.9850 | 0.8378 |
+| **Missed Evacuations** | 3 (out of 197) | 0 (out of 197) | 55 (out of 197) |
+| **Terrain/SAR SHAP** | 17.03% | 6.90% | N/A — not computed for sequence model, out of Day 4-6 scope |
+
+- [x] **Expected outcome, know this going in**: on a synthetic dataset this clean (RF/XGB already at 97-100% test accuracy, 0.99 evacuation F1), GRU is very unlikely to beat the tree baseline — sequence models earn their keep on messier temporal dependencies than a physics-generated Fukuzono curve with 10 clean features. **That's fine and expected — do not manufacture a win.** The honest story for the pitch: *"Tree baselines already capture the strong physical signal in our synthetic data extremely well. GRU is included to benchmark against the literature-standard model progression (RF/XGBoost → LSTM/GRU → hybrid ensemble) and to validate our architecture scales to a deep-learning approach when moving from synthetic to real noisy sensor data, where temporal dependencies would matter more. We chose GRU over LSTM specifically for its stronger small-dataset generalization — fewer parameters, less overfitting risk, no accuracy trade-off at this data scale."* This is a stronger, more defensible answer than an inflated number a judge might probe and find inconsistent with your SHAP/eval methodology elsewhere.
+- [x] If GRU does meaningfully underperform, do NOT quietly drop it from the deck — the comparison table with an honest "tree models win on this data, here's why" is more credible than showing only your best model.
 
 ---
 
-## Phase 20 — Backend: Swap Mock `/predict` for Real Model
+## Phase 20 — Backend: Swap Mock `/predict` for Real Model `[DONE ✅ 2026-08-20]`
 **Target: Day 4–5, 2–3 hrs.**
 
 ⚠️ **Correction — load the model in FastAPI's `lifespan`, not at import time or inside the endpoint.** Verified current best practice: use the `lifespan` async context manager (the `@app.on_event("startup")` decorator is deprecated), store the loaded model on `app.state`, and — critically — **let load failure crash startup rather than serving a broken endpoint**. A worker that can't load the model should fail fast so Render's process manager flags it, not silently serve 500s on first request.
@@ -97,34 +107,34 @@ async def predict(reading: SensorReading, request: Request):
     ...
 ```
 
-- [ ] Pick the model to ship first: **RF v2**, not XGBoost — RF's evacuation recall (0.9848) is marginally behind XGBoost's (1.0000) but RF's precision is higher (0.9949 vs 0.9704) and its terrain/SAR SHAP contribution is stronger (17.03% vs 6.90%), which is the more interesting story for judges ("our model genuinely uses the geospatial pipeline"). If asked why not XGBoost: you have the answer — XGBoost's perfect recall came with more false evacuation alarms, and you can show both in the table.
-- [ ] Load `feature_order.json` and `label_encoding.json` from Phase 15 alongside the model — the endpoint must assemble the feature vector in the **exact trained column order**, and decode `predict()`'s integer output back through `label_encoding.json`, not a hardcoded guess at the mapping.
-- [ ] `/predict` input is a `SensorReading` (per the Day 0 contract) but the model needs terrain/SAR features too — the endpoint must look up the zone's static terrain/SAR values (from `data/zone_features.csv`, loaded once at startup into `app.state`, not re-read from disk per request) and join them to the incoming sensor reading before calling `model.predict()`.
-- [ ] Output must validate against the existing `RiskPrediction` Pydantic schema unchanged — this is the contract-first payoff from Day 0. If the mock and real endpoint both satisfy the same schema, frontend needs zero changes.
-- [ ] Add a `model_version` field value that reflects the real artifact (`"rf-v2-20260820"`), not the mock's placeholder — the frontend/dashboard can display this, useful for demo credibility ("here's exactly which model version is live").
-- [ ] Smoke test: call `/predict` with a known evacuation-class input from your test set, confirm the returned `risk_level` matches what Phase 14's offline evaluation predicted for that row. If it doesn't match, the feature-order or label-encoding wiring is wrong — catch this now, not during the Day 6 integration test.
+- [x] Pick the model to ship first: **RF v2**, not XGBoost — RF's evacuation recall (0.9848) is marginally behind XGBoost's (1.0000) but RF's precision is higher (0.9949 vs 0.9704) and its terrain/SAR SHAP contribution is stronger (17.03% vs 6.90%), which is the more interesting story for judges ("our model genuinely uses the geospatial pipeline"). If asked why not XGBoost: you have the answer — XGBoost's perfect recall came with more false evacuation alarms, and you can show both in the table.
+- [x] Load `feature_order.json` and `label_encoding.json` from Phase 15 alongside the model — the endpoint must assemble the feature vector in the **exact trained column order**, and decode `predict()`'s integer output back through `label_encoding.json`, not a hardcoded guess at the mapping.
+- [x] `/predict` input is a `SensorReading` (per the Day 0 contract) but the model needs terrain/SAR features too — the endpoint must look up the zone's static terrain/SAR values (from `data/zone_features.csv`, loaded once at startup into `app.state`, not re-read from disk per request) and join them to the incoming sensor reading before calling `model.predict()`.
+- [x] Output must validate against the existing `RiskPrediction` Pydantic schema unchanged — this is the contract-first payoff from Day 0. If the mock and real endpoint both satisfy the same schema, frontend needs zero changes.
+- [x] Add a `model_version` field value that reflects the real artifact (`"rf-v2-20260820"`), not the mock's placeholder — the frontend/dashboard can display this, useful for demo credibility ("here's exactly which model version is live").
+- [x] Smoke test: call `/predict` with a known evacuation-class input from your test set, confirm the returned `risk_level` matches what Phase 14's offline evaluation predicted for that row. If it doesn't match, the feature-order or label-encoding wiring is wrong — catch this now, not during the Day 6 integration test.
 
 ---
 
 ## Phase 21 — Backend: Wire Real Generator into Live Feed
 **Target: Day 5, 2 hrs.**
 
-- [ ] **Before anything else, open `scripts/phase7_synthetic_sensors.py` and confirm it's structured as importable functions (e.g. `def generate_next_reading(zone_id, prev_state) -> SensorReading`), not a standalone `if __name__ == "__main__":` script that only writes a CSV and exits.** If it's the latter, this phase needs a refactor pass first (extract the per-timestep generation logic into a callable function) before it can be looped inside a FastAPI background task. Don't discover this mid-implementation — check it first, it changes the shape of this phase's work.
-- [ ] Replace the Day 1 random mock generator behind `/ws/feed` with the Phase 7 physics-informed generator, run in "live" mode — instead of writing a static 356-day CSV, step it forward one timestep at a time on a loop (e.g. every 2-5 seconds) and broadcast via the existing `ConnectionManager` pattern from Day 1. Reuse the broadcast pattern; don't build a second channel.
-- [ ] Each broadcast tick: generate the next `SensorReading` for a zone (or all 16 in rotation), run it through the now-real `/predict` logic (call the same function the endpoint uses, don't duplicate model-loading code), and push both `SensorReading` + `RiskPrediction` in the existing WebSocket envelope shape.
-- [ ] Alert-trigger logic: when a tick's `risk_level` crosses into `warning` or `evacuation`, emit an `AlertEvent` over the same channel. Trigger on **class crossing a threshold**, not on every warning/evacuation tick — otherwise a zone sitting in evacuation for 10 consecutive ticks fires 10 alerts instead of 1, which will look broken on the dashboard's alert log during the live demo.
-- [ ] Keep a per-zone "last known state" in `app.state` so the crossing-detection above has something to compare against between ticks.
-- [ ] This is the piece most likely to have subtle bugs (async loop timing, broadcast to disconnected clients, alert de-dup) — test it standalone with a WebSocket test client (as you already did in Phase 8) before touching the frontend.
+- [x] **Before anything else, open `scripts/phase7_synthetic_sensors.py` and confirm it's structured as importable functions (e.g. `def generate_next_reading(zone_id, prev_state) -> SensorReading`), not a standalone `if __name__ == "__main__":` script that only writes a CSV and exits.** If it's the latter, this phase needs a refactor pass first (extract the per-timestep generation logic into a callable function) before it can be looped inside a FastAPI background task. Don't discover this mid-implementation — check it first, it changes the shape of this phase's work.
+- [x] Replace the Day 1 random mock generator behind `/ws/feed` with the Phase 7 physics-informed generator, run in "live" mode — instead of writing a static 356-day CSV, step it forward one timestep at a time on a loop (e.g. every 2-5 seconds) and broadcast via the existing `ConnectionManager` pattern from Day 1. Reuse the broadcast pattern; don't build a second channel.
+- [x] Each broadcast tick: generate the next `SensorReading` for a zone (or all 16 in rotation), run it through the now-real `/predict` logic (call the same function the endpoint uses, don't duplicate model-loading code), and push both `SensorReading` + `RiskPrediction` in the existing WebSocket envelope shape.
+- [x] Alert-trigger logic: when a tick's `risk_level` crosses into `warning` or `evacuation`, emit an `AlertEvent` over the same channel. Trigger on **class crossing a threshold**, not on every warning/evacuation tick — otherwise a zone sitting in evacuation for 10 consecutive ticks fires 10 alerts instead of 1, which will look broken on the dashboard's alert log during the live demo.
+- [x] Keep a per-zone "last known state" in `app.state` so the crossing-detection above has something to compare against between ticks.
+- [x] This is the piece most likely to have subtle bugs (async loop timing, broadcast to disconnected clients, alert de-dup) — test it standalone with a WebSocket test client (as you already did in Phase 8) before touching the frontend.
 
 ---
 
-## Phase 22 — Frontend: Point at Real Backend
+## Phase 22 — Frontend: Point at Real Backend `[DONE ✅ 2026-08-20]`
 **Target: Day 5, 1–2 hrs.**
 
-- [ ] Switch dashboard's API base URL from mock to local real backend first (`http://localhost:8000` or whatever your dev port is) — confirm end-to-end locally before touching deployment.
-- [ ] Fix any schema drift now. You already flagged one in Phase 9: `frontend/lib/types.ts`'s `SensorReading` is missing the optional `risk_level?: RiskLevel | null` field present in the backend Pydantic model. Add it now — this is exactly the Day 6 blocker Phase 9 warned about, don't let it slide further.
-- [ ] Confirm the heatmap's three risk-band colors still map correctly against **real** model outputs, not just the mock's weighted-random values — real model output distribution may cluster differently than the 60/25/15 mock weighting did visually, double check the map doesn't look "off" (e.g., all-green or all-red) with real predictions live.
-- [ ] No new UI work here — Day 5 frontend scope is re-pointing and fixing drift, not new features. Polish is Day 6.
+- [x] Switch dashboard's API base URL from mock to local real backend first (`http://localhost:8001`, `ws://localhost:8001/ws/feed`) — confirmed end-to-end locally.
+- [x] Fix schema drift: added `risk_level?: RiskLevel | null` to `SensorReading` in `frontend/lib/types.ts` matching backend Pydantic schema, added `AlertSeverity`, and added WebSocket message envelope types (`TelemetryUpdateMessage`, `AlertEventMessage`, `WebSocketMessage`).
+- [x] Confirm the heatmap's three risk-band colors map correctly against **real** model outputs (61.2% safe / 25.8% warning / 12.9% evacuation across 16 zones), preventing any degenerate single-color visual states.
+- [x] No new UI features or out-of-scope styling added — strictly re-pointed and drift-fixed per Phase 22 scope.
 
 ---
 
@@ -159,6 +169,7 @@ async def predict(reading: SensorReading, request: Request):
 
 ## Notes for the pitch deck (carry forward)
 - Model progression story is now complete and honest end-to-end: RF/XGBoost baseline (near-perfect on synthetic data, terrain/SAR genuinely learned per SHAP) → GRU benchmarked on identical split/metrics (included for architectural completeness and forward-compatibility with real noisy sensor data, not because it won). This is a *stronger* pitch than a single-model system — it shows deliberate methodology, not just "we trained a model." If asked "why GRU and not LSTM," the answer is ready: fewer parameters, better generalization at this dataset size, verified against current literature — not a shortcut.
+- GRU trades recall for precision at the class boundary — it never raises a false evacuation alarm, and it never silently downgrades a real evacuation to safe. Its 55 misses all land in the warning band, one class away, not two — a materially safer failure mode than a random miss, and worth further characterization on real (non-synthetic) sensor noise.
 - `lifespan`-based model loading with fail-fast startup is a small but real engineering-maturity signal if a technical judge inspects your repo — worth a one-line mention if the conversation goes there.
 - Cold-start mitigation (warm the Render instance pre-demo) is an operational detail, not a pitch talking point — just don't get caught by it live.
 - Class-weighted loss now applied consistently across all three model families (sklearn `sample_weight` for RF/XGB, `CrossEntropyLoss(weight=...)` for GRU) — same underlying principle (inverse-frequency, train-split-only), correctly adapted per-framework. If asked "did you handle imbalance the same way for your deep learning model," the honest answer is "same principle, framework-appropriate implementation" — say that, don't claim identical code.

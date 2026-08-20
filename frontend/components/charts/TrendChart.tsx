@@ -22,6 +22,7 @@ export interface TrendDataPoint {
 interface TrendChartProps {
   data?: TrendDataPoint[];
   title?: string;
+  zoneId?: string;
 }
 
 const mockTrendData: TrendDataPoint[] = [
@@ -37,7 +38,42 @@ const mockTrendData: TrendDataPoint[] = [
 export default function TrendChart({
   data = mockTrendData,
   title = 'Sensor Telemetry Trends (Displacement vs Velocity)',
+  zoneId,
 }: TrendChartProps) {
+  const [liveData, setLiveData] = React.useState<TrendDataPoint[]>([]);
+
+  React.useEffect(() => {
+    if (!zoneId) return; // if no zoneId, just use fallback data
+
+    import('@/lib/websocket').then(({ SensorWebSocketClient }) => {
+      const wsClient = new SensorWebSocketClient();
+      
+      const unsubscribe = wsClient.onMessage((msg) => {
+        if (msg.type === 'telemetry_update' && msg.sensor_reading.zone_id === zoneId) {
+          const { sensor_reading, timestamp } = msg;
+          const timeLabel = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          
+          setLiveData((prev) => {
+            const next = [...prev, {
+              time: timeLabel,
+              displacement: sensor_reading.displacement_mm_day,
+              velocity: msg.risk_prediction.displacement_velocity_mm_day,
+              porePressure: sensor_reading.pore_pressure,
+            }];
+            return next.slice(-20); // Keep last 20 points
+          });
+        }
+      });
+
+      wsClient.connect();
+      return () => {
+        unsubscribe();
+        wsClient.disconnect();
+      };
+    });
+  }, [zoneId]);
+
+  const displayData = liveData.length > 0 ? liveData : data;
   return (
     <div className="w-full p-6 bg-slate-900/80 border border-slate-800 rounded-xl shadow-xl">
       <div className="flex items-center justify-between mb-4">
@@ -49,7 +85,7 @@ export default function TrendChart({
 
       <div className="h-[320px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+          <LineChart data={displayData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
             <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} />
             <YAxis stroke="#94a3b8" fontSize={12} />

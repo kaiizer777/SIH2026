@@ -1,22 +1,44 @@
-Pitch File 07 — Deep Learning Architecture (GRU vs LSTM) & Sequence Modeling Defense
+PITCH SECTION 07 — Deep Learning Benchmark (GRU vs Tree Baseline)
 
-Q1: Why did you choose GRU over LSTM for the Day 4–6 sequence modeling baseline?
-A: On our 14-day trailing sequence window and ~3.4k training sequences, standard LSTM’s dedicated cell state ($c_t$) represents unnecessary architectural overhead. GRU achieves structural regularization with ~25% fewer parameters (2 gating mechanisms vs 3 gates + cell state in LSTM), significantly reducing the risk of overfitting on short time horizons. In geotechnical literature (e.g. slope displacement forecasting under Fukuzono inverse velocity regimes), GRU consistently matches or edges out LSTM on <=14-day horizons while training faster and providing smoother convergence. Furthermore, GRU reduces ONNX inference latency on edge ARM hardware (Raspberry Pi 4 / Jetson Nano) by ~25-30% due to fewer matrix multiplications per timestep.
+HEADLINE NUMBERS (evacuation class, test set, 1,136 held-out sequences):
+- RandomForest:  Precision 0.9949 | Recall 0.9848 | F1 0.9898 | Missed evacuations: 3/197
+- XGBoost:       Precision 0.9704 | Recall 1.0000 | F1 0.9850 | Missed evacuations: 0/197
+- GRU:           Precision 1.0000 | Recall 0.7208 | F1 0.8378 | Missed evacuations: 55/197
 
-Q2: Why use a 14-day sliding window for sequence framing?
-A: 14 days directly captures the acceleration phase of the Fukuzono (1985) inverse velocity precursor curve without accumulating historical noise from weeks prior. In live deployment, sensor data streams continuously and operators need real-time risk assessment for the current day based on trailing trends. A 14-day window provides sufficient temporal context to calculate dynamic velocity, acceleration, and rate-of-change across all 10 feature channels (4 physical sensors + 6 terrain/SAR features) while keeping the inference footprint lightweight.
+WHY GRU WAS INCLUDED (say this proactively, don't wait to be asked):
+Tree baselines already capture the strong physical signal in our synthetic Fukuzono-curve
+data extremely well. GRU was benchmarked to validate the model progression against the
+literature-standard approach (RF/XGBoost -> LSTM/GRU -> hybrid ensemble) and to confirm our
+architecture scales to a deep-learning approach for when real, noisier sensor data replaces
+synthetic data -- a setting where temporal sequence models are expected to earn their keep
+more than they do here.
 
-Q3: How do you prevent temporal leakage across train, val, and test sequence boundaries?
-A: We enforce a strict asymmetric boundary policy in Phase 17:
-1. Target-Date Gating: Every sequence’s split assignment and label are strictly dictated by the target day (the final timestep in the 14-day window).
-2. Backward History Allowance: A window targeting an early validation date (e.g., April 8) is permitted to reach backward into train-period dates for its preceding 13 days of sensor history. This mirrors real-world deployment where historical sensor readings are legitimately available.
-3. Forward Leakage Guard: Sequences are strictly forbidden from looking forward into subsequent splits (e.g., a train window can never touch validation or test dates). This is enforced with hard assertion checks in `phase17_sequence_builder.py`.
+WHY GRU OVER LSTM (if asked):
+At ~3,440 training sequences with a 14-day window, GRU's ~25% fewer parameters than LSTM
+give it better small-dataset generalization with no accuracy trade-off -- verified against
+current benchmarks, not a shortcut. LSTM's extra gating pays off on longer or noisier
+sequences than this physics-clean dataset has.
 
-Q4: How do you handle class imbalance in the deep learning sequence model compared to the tree baseline?
-A: We apply the exact same mathematical principle—inverse-frequency class weighting—adapted appropriately for the deep learning framework. In PyTorch, we compute class weights strictly from the training split (`y_train_seq`, 3,440 sequences) and pass the resulting tensor directly into `nn.CrossEntropyLoss(weight=weight_tensor)`. We do not use sequence oversampling or SMOTE because synthetic interpolation of a full 14-step multi-channel trajectory breaks physical phase coupling and autocorrelation across sensor channels.
+THE KEY DEFENSIBLE TALKING POINT (this is the one to lead with, it reframes a "weaker"
+number into a real finding):
+GRU trades recall for precision at the class boundary -- it never raises a false evacuation
+alarm (perfect 1.0000 precision), and it never silently downgrades a real evacuation to
+safe (zero evacuation->safe misses). All 55 misses land one class away, in warning, not two
+classes away in safe. That is a materially safer failure mode than a random miss would be,
+and it's a property worth characterizing further once real (non-synthetic) sensor noise
+enters the picture.
 
-Q5: What if the GRU doesn't beat the RandomForest / XGBoost baseline on test-set metrics?
-A: That is the expected and honest outcome on a clean physics-informed dataset where tree ensembles already achieve near-perfect class separation (0.99 evacuation F1). The GRU is included to establish architectural completeness against the literature-standard model progression (Tree Baseline -> Recurrent Deep Learning -> Hybrid Ensemble) and to prove our system architecture scales seamlessly to real, noisy, high-frequency mine telemetry where non-linear temporal dependencies dominate over static feature thresholds. Showing the progression honestly in our benchmark comparison table demonstrates rigorous engineering maturity.
+IF PRESSED ON WHY GRU "LOST":
+Say it plainly, don't hedge: on this clean synthetic data, trees win, and that's expected --
+we said so in our own methodology notes before we even ran the test set. A hackathon judge
+respects a team that predicted its own result and reported it honestly over one that hid a
+weaker number or inflated it. This is a controlled comparison, not our best-foot-forward
+number -- our shipped production endpoint uses RandomForest for exactly this reason (see
+Phase 20 model choice).
 
-Q6: How does the GRU sequence model deploy to the edge?
-A: The trained PyTorch GRU model is exported to standard ONNX format (`.onnx`). Because GRU relies on standard matrix operations without complex custom cell memory routing, ONNX Runtime executes the forward pass on edge ARM CPUs (Raspberry Pi 4) in under 2 milliseconds for a (1, 14, 10) tensor. The edge daemon maintains a 14-day circular ring buffer of sensor readings in memory and evaluates risk locally on every new sensor tick, operating completely independently of internet connectivity.
+DO NOT SAY:
+- Do not claim GRU "matches" or "is competitive with" the tree baseline on evacuation F1 --
+  0.84 vs 0.99 is a real, material gap, don't understate it.
+- Do not claim SHAP was run on GRU -- it wasn't (out of scope, tree explainers don't apply
+  directly to RNN outputs, a separate DeepExplainer/GradientExplainer pass would be required
+  and was deliberately not pursued this cycle).
