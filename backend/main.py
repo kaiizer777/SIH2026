@@ -101,8 +101,16 @@ async def lifespan(app: FastAPI):
     except ImportError:
         from routers.rockfall import broadcast_sensor_feed_loop, manager  # type: ignore
 
-    broadcast_task = asyncio.create_task(broadcast_sensor_feed_loop(app, interval_seconds=2.5))
-    logger.info("Broadcast task started (interval=2.5s, 16 zones round-robin)")
+    broadcast_task = asyncio.create_task(
+        broadcast_sensor_feed_loop(
+            app,
+            interval_seconds=float(os.getenv("BROADCAST_INTERVAL_SECONDS", "2.5")),
+        )
+    )
+    logger.info(
+        "Broadcast task started (interval=%ss, 16 zones round-robin)",
+        os.getenv("BROADCAST_INTERVAL_SECONDS", "2.5"),
+    )
 
     yield
 

@@ -4,7 +4,7 @@ Companion to CONTEXT.md. This is the execution plan. Follow the order — the co
 
 ---
 
-## Day 0 (before Day 1 — ~2 hrs, solo dev, do this first) — [COMPLETED ✅]
+## Day 0 (before Day 1 — ~2 hrs) — [COMPLETED ✅]
 
 1. **Repo scaffold** `[DONE ✅]`
    - `SIH2026/frontend` — Next.js 16.3.1, App Router, TS 5.9.3, Tailwind 4.x

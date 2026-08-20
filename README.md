@@ -7,35 +7,37 @@
 
 An end-to-end geotechnical surveillance and early-warning platform designed for open-pit mines. The system fuses multi-modal environmental, spatial, and sensor telemetry into physics-grounded machine learning models to forecast slope instability and trigger sub-minute evacuation alerts.
 
-## 📖 About The Project
+**Live:** [Backend](https://sih2026-xk4z.onrender.com) · [Frontend](https://sih-2026-drab.vercel.app) · [API Docs](https://sih2026-xk4z.onrender.com/docs)
+
+## About The Project
 
 **SIH25071** is an AI/ML-powered geotechnical early-warning and slope stability surveillance platform tailored for open-pit / opencast mining operations (aligned with the **Ministry of Mines, Disaster Management** theme).
 
-In opencast mines (such as SECL Kusmunda, Korba Coalfield, Chhattisgarh), slope failure and bench rockfalls represent critical occupational hazards. While industrial **Slope Stability Radar (SSR)** systems deliver sub-millimeter displacement tracking, their high capital expenditure (~$250k–$500k/unit) and line-of-sight constraints leave peripheral and smaller-scale pits unmonitored. 
+In opencast mines (such as SECL Kusmunda, Korba Coalfield, Chhattisgarh), slope failure and bench rockfalls represent critical occupational hazards. While industrial **Slope Stability Radar (SSR)** systems deliver sub-millimeter displacement tracking, their high capital expenditure (~$250k–$500k/unit) and line-of-sight constraints leave peripheral and smaller-scale pits unmonitored.
 
 This platform bridges that gap by fusing **distributed geotechnical sensor telemetry**, **satellite Earth observation**, and **meteorological data** into a unified, physics-grounded machine learning pipeline:
 
-* **🛰️ Multi-Modal Remote Sensing & Meteorology:** Extracts Copernicus GLO-30 Digital Elevation Models (DEM) for slope, aspect, and curvature profiling via Google Earth Engine (GEE); integrates Sentinel-1 SAR (C-band GRD) multi-temporal backscatter anomaly tracking ($\Delta\text{dB}$ surface disturbance proxy); streams Open-Meteo ERA5-calibrated precipitation data.
-* **⚡ Physics-Informed Geotechnical Telemetry:** Real-time surface displacement, pore water pressure, micro-seismic vibration, and strain gauges calibrated under the **Fukuzono (1985) Inverse Velocity Method** ($v \to \infty, 1/v \to 0$ precursor dynamics).
-* **🧠 Imbalance-Aware ML Engine:** Rigorously addresses heavy class imbalance (SMOTE / cost-sensitive loss), prioritizing minority-class precision, recall, and PR-AUC over raw accuracy. Models transition from Tree baselines (RandomForest / XGBoost) to Sequential Deep Learning (GRU) and compile to **ONNX Runtime** for zero-latency, offline edge alerting at the pit.
-* **📊 Mission-Critical 3D GIS Dashboard:** Next.js 16 (React 19 + TypeScript + MapLibre GL) single-pane interface delivering 3D pit heatmaps, real-time WebSocket telemetry charts, and sub-minute evacuation dispatch logs.
+* **Multi-Modal Remote Sensing & Meteorology:** Copernicus GLO-30 DEM for slope/aspect/curvature via Google Earth Engine; Sentinel-1 SAR (C-band GRD) backscatter change detection as a surface-disturbance proxy; Open-Meteo ERA5 precipitation data.
+* **Physics-Informed Geotechnical Telemetry:** Displacement, pore pressure, vibration, and strain calibrated under the **Fukuzono (1985) Inverse Velocity Method** — displacement accelerates and inverse velocity trends to zero before failure.
+* **Imbalance-Aware ML Engine:** Class-weighted loss (not SMOTE — physically-correlated channels risk implausible synthetic interpolation). Models: RandomForest, XGBoost (production champion — 100% evacuation recall), GRU (benchmark). Exportable to **ONNX Runtime** for offline edge alerting.
+* **Real-Time 3D Dashboard:** Next.js 16 + MapLibre GL pit heatmaps, WebSocket telemetry charts, and evacuation dispatch logs.
 
 ---
 
-## 📌 Problem & Physical Grounding
+## Problem & Physical Grounding
 
 * **Problem Statement:** SIH25071 | Ministry of Mines (Disaster Management Theme)
-* **Goal:** Mitigate fatal slope failures in opencast mines where high-cost Slope Stability Radar (SSR ~$250k–$500k/unit) coverage is unavailable or line-of-sight constrained.
-* **Physical Basis:** 
-  * **Inverse Velocity Method (Fukuzono, 1985):** As failure nears, displacement rate accelerates ($v \to \infty$) and inverse velocity linearly trends to zero ($1/v \to 0$), enabling calculated lead-time forecasting.
-  * **Empirical Risk Thresholds:**
-    * 🟢 **Safe:** $0 - 50\text{ mm/day}$
-    * 🟡 **Warning:** $50 - 120\text{ mm/day}$
-    * 🔴 **Evacuation:** $> 120\text{ mm/day}$
+* **Goal:** Mitigate fatal slope failures in opencast mines where SSR coverage is unavailable.
+* **Physical Basis:**
+  * **Inverse Velocity Method (Fukuzono, 1985):** Displacement rate accelerates before failure; inverse velocity trends to zero — enables lead-time forecasting.
+  * **Empirical Risk Thresholds** (Indonesian open-pit coal SSR case study):
+    * **Safe:** 0–50 mm/day
+    * **Warning:** 50–120 mm/day
+    * **Evacuation:** >120 mm/day
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```
 [Geotechnical Sensors + Sentinel-1 SAR + GLO-30 DEM + Open-Meteo API]
@@ -55,15 +57,25 @@ This platform bridges that gap by fusing **distributed geotechnical sensor telem
            [Next.js 16 Dashboard (MapLibre + Recharts)]
 ```
 
-* **Data Fusion:** Physics-informed synthetic sensor streams (displacement, pore pressure, micro-seismic, strain) calibrated against real-world datasets (Landslide4Sense, NASA GLC, Dorren et al., GSI/DGMS), fused with real DEM (Copernicus GLO-30), Sentinel-1 SAR backscatter change detection, and rainfall telemetry.
-* **ML Pipeline:** Focuses heavily on **class imbalance** (SMOTE / cost-sensitive weighting) evaluating PR-AUC & minority F1-score. Models exportable to **ONNX Runtime** for local offline edge execution on low-power hardware.
+---
+
+## Model Performance (Test Set — Evacuation Class)
+
+| Metric | RandomForest (v2) | XGBoost (v2) | GRU |
+|:---|:---|:---|:---|
+| **Precision** | 0.9949 | 0.9704 | 1.0000 |
+| **Recall** | 0.9848 | 1.0000 | 0.7208 |
+| **F1-Score** | 0.9898 | 0.9850 | 0.8378 |
+| **Missed Evacuations** | 3 / 197 | 0 / 197 | 55 / 197 |
+
+XGBoost is the production champion (zero missed evacuations). RF ships on the live backend for its stronger terrain/SAR SHAP signal (17.03% vs 6.90%). GRU is benchmarked for architectural completeness — all 55 misses land in Warning, not Safe.
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technologies |
-| :--- | :--- |
+|:---|:---|
 | **Frontend** | Next.js 16.3 (App Router, Turbopack), React 19, TypeScript 5.9, Tailwind CSS 4 |
 | **Mapping & Viz** | MapLibre GL + React-Map-GL (open-source 3D terrain), Recharts |
 | **Backend API** | FastAPI 0.141, Python 3.12, Uvicorn, WebSockets |
@@ -72,29 +84,33 @@ This platform bridges that gap by fusing **distributed geotechnical sensor telem
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 SIH2026/
 ├── frontend/             # Next.js 16 App Router UI
-│   ├── app/              # Routes: /dashboard (Map), /trends (Charts), /alerts
-│   ├── components/       # MapLibre 3D heatmaps & Recharts telemetry widgets
-│   ├── lib/              # API and WebSocket client adapters
-│   └── types/            # TypeScript schemas
+│   ├── app/              # Routes: /dashboard, /alerts, /trends, /pitch
+│   ├── components/       # MapLibre 3D heatmap, Recharts trends, TopBar
+│   └── lib/              # API client, WebSocket client, TypeScript types
 │
 ├── backend/              # FastAPI microservice
-│   ├── main.py           # Application entrypoint & health endpoints
-│   ├── routers/          # API routes (rockfall inference, alerts, telemetry)
-│   ├── models/           # Pydantic schemas & ML inference pipeline
-│   └── requirements.txt  # Python dependencies
+│   ├── main.py           # Entrypoint, lifespan, CORS, router mount
+│   ├── app/schemas.py    # Pydantic: SensorReading, RiskPrediction, AlertEvent
+│   ├── app/physics_generator.py  # Fukuzono-based live sensor generator
+│   └── routers/rockfall.py       # POST /predict, WS /ws/feed, alert logic
 │
-├── CONTEXT.MD            # Engineering specification & scientific references
-└── README.md
+├── models/               # Trained artifacts (RF, XGBoost, GRU + metadata)
+├── data/                 # DEM, SAR, rainfall, synthetic sensors, sequences
+├── scripts/              # Phase scripts (terrain → training → integration)
+├── tests/                # Pytest: endpoint, WebSocket, alert dedup, physics
+├── reports/              # SHAP plots, confusion matrices
+├── docs/                 # CONTEXT.md, WORKFLOW.md, session logs, pitch drafts
+└── frontend.md           # Frontend design guide (single source of truth)
 ```
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Backend (FastAPI)
 
@@ -112,7 +128,7 @@ pip install -r requirements.txt
 # Run development server
 uvicorn main:app --reload --port 8000
 ```
-> API Docs accessible at `http://localhost:8000/docs`
+> API Docs at `http://localhost:8000/docs`
 
 ### 2. Frontend (Next.js)
 
@@ -125,4 +141,15 @@ npm install
 # Start development server
 npm run dev
 ```
-> Dashboard runs at `http://localhost:3000`
+> Dashboard at `http://localhost:3000`
+
+---
+
+## Documentation
+
+| Doc | Description |
+|:---|:---|
+| [`docs/CONTEXT.md`](docs/CONTEXT.md) | Full engineering spec, scientific references, all 29 phases, API reference, glossary |
+| [`docs/WORKFLOW.md`](docs/WORKFLOW.md) | Day 0 → Demo execution plan |
+| [`frontend.md`](frontend.md) | Frontend design guide (colors, typography, components, responsiveness) |
+| [`AGENTS.md`](AGENTS.md) | AI agent operational directives |

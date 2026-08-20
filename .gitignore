@@ -63,10 +63,9 @@ docs/session-done-03.md
 session-done-*.md
 session-done-02.md
 session-done-03.md
-WORKFLOW.md
-workflow.md
-WORK.md
-work.md
-frontend.md
-FRONTEND.md
-AGENTS.md
+
+# Root markdown files (ignore all except README)
+/*.md
+!/README.md
+!/readme.md
+

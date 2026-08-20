@@ -19,51 +19,6 @@ interface UIAlert {
   status: string;
 }
 
-const mockAlerts: UIAlert[] = [
-  {
-    id: 'ALT-9042',
-    timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-    level: 'evacuation',
-    zone: 'North Highwall - Bench 4',
-    sensorId: 'RADAR-01',
-    message:
-      'Inverse-velocity threshold breached: 1.80 mm/day acceleration detected. Immediate bench evacuation recommended.',
-    probability: 0.88,
-    status: 'active',
-  },
-  {
-    id: 'ALT-9041',
-    timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    level: 'warning',
-    zone: 'East Haul Road - Ramp 2',
-    sensorId: 'EXT-08',
-    message:
-      'Extensometer pore pressure surge (+32 kPa) following monsoon rainfall event. Speed limits enforced.',
-    probability: 0.58,
-    status: 'acknowledged',
-  },
-  {
-    id: 'ALT-9040',
-    timestamp: new Date(Date.now() - 1000 * 60 * 80).toISOString(),
-    level: 'advisory',
-    zone: 'West Pit Crest',
-    sensorId: 'METEO-02',
-    message: 'Rainfall intensity exceeds 15 mm/hr. Ground moisture saturation approaching advisory threshold.',
-    probability: 0.35,
-    status: 'active',
-  },
-  {
-    id: 'ALT-9039',
-    timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    level: 'safe',
-    zone: 'South Slope Bench',
-    sensorId: 'SEIS-03',
-    message: 'Micro-seismic tremors normalized below background baseline. Nominal operations resumed.',
-    probability: 0.12,
-    status: 'resolved',
-  },
-];
-
 type AlertFilter = 'all' | 'evacuation' | 'warning' | 'advisory' | 'safe';
 
 const alertFilterPills: FilterPillOption<AlertFilter>[] = [
@@ -75,7 +30,7 @@ const alertFilterPills: FilterPillOption<AlertFilter>[] = [
 ];
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<UIAlert[]>(mockAlerts);
+  const [alerts, setAlerts] = useState<UIAlert[]>([]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<AlertFilter>('all');
   const [dispatchedIds, setDispatchedIds] = useState<Set<string>>(new Set());
@@ -216,7 +171,17 @@ export default function AlertsPage() {
             )}
           </div>
 
-          {filteredAlerts.length === 0 ? (
+          {alerts.length === 0 ? (
+            <div className="py-16 text-center space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#EFF4FF] border border-[#2563EB]/20 text-[11px] font-mono uppercase tracking-[0.18em] text-[#2563EB]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2563EB] animate-pulse" />
+                Awaiting live alerts
+              </div>
+              <p className="text-[14px] text-[#5B6472]">
+                Listening on <code className="font-mono text-[12px] bg-white px-1.5 py-0.5 rounded border border-[#E6E8EE]">/ws/feed</code> &mdash; incoming AlertEvents from the broadcast loop will appear here.
+              </p>
+            </div>
+          ) : filteredAlerts.length === 0 ? (
             <div className="py-16 text-center text-[#5B6472]">
               No alerts match the selected criteria.
             </div>

@@ -1,0 +1,62 @@
+name: Keep Render Alive
+
+# Phase 27 deploy hardening -- ping the Render free-tier backend every
+# 14 minutes so it never spins down between demo rehearsals / live demos.
+#
+# Render free tier sleeps the instance after 15 minutes of inactivity, then
+# takes 30-60s to cold-start on the next request. A pre-demo manual ping
+# (Phase 23) is a single point of failure (relies on memory under pressure);
+# a scheduled heartbeat removes the failure mode entirely.
+#
+# Cadence: */14 * * * * = every 14 minutes, well under the 15-min idle
+# threshold. GitHub Actions cron has a best-effort ~1-3 min jitter but
+# Render's idle clock is reset on each request, so jitter is irrelevant
+# as long as AT LEAST one ping lands in every 15-min window.
+#
+# Free on public repos; no third-party account needed.
+#
+# Verification: after merging this file, watch the Actions tab for at
+# least one successful run; each run will log the HTTP status. If
+# the first run shows 200, the instance is reachable and the loop is
+# in steady-state.
+
+on:
+  schedule:
+    # Every 14 minutes. Cron is UTC; IST = UTC+5:30.
+    # Spaced to land inside Render's 15-min idle window with margin.
+    - cron: '*/14 * * * *'
+  # Allow manual trigger from the Actions tab (useful for demo-day warm-up).
+  workflow_dispatch:
+
+jobs:
+  ping-render:
+    name: Ping Render /health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Warm Render instance via GET /health
+        run: |
+          set -euo pipefail
+          # -f: fail silently on non-2xx (we want to log status, not abort).
+          # Capture status code + body without aborting on non-2xx.
+          set +e
+          HTTP_STATUS=$(curl -s -o /tmp/health_body.json -w '%{http_code}' \
+            --max-time 60 \
+            https://sih2026-xk4z.onrender.com/health)
+          CURL_RC=$?
+          set -e
+          echo "curl_rc=${CURL_RC}"
+          echo "http_status=${HTTP_STATUS}"
+          echo "----- /health body -----"
+          cat /tmp/health_body.json || true
+          echo
+          echo "------------------------"
+          if [ "${CURL_RC}" -ne 0 ]; then
+            echo "ERROR: curl failed with rc=${CURL_RC} -- network problem, will retry next interval"
+            exit 1
+          fi
+          if [ "${HTTP_STATUS}" != "200" ]; then
+            echo "ERROR: /health returned HTTP ${HTTP_STATUS} -- Render not healthy"
+            exit 1
+          fi
+          echo "OK: Render /health returned 200"

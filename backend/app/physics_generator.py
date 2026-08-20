@@ -26,6 +26,7 @@ Design contracts:
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -294,6 +295,39 @@ def initialize_all_zone_states(
 # Per-tick step function -- the live generation core
 # ---------------------------------------------------------------------------
 
+def _forced_evacuation_reading(
+    state: ZoneGeneratorState,
+    sim_dates: list[str],
+    rain_val: float,
+) -> SensorReading:
+    """
+    Phase 26 debug-only override: return a deterministic evacuation-tier
+    SensorReading for the given zone, bypassing the physics-informed generator.
+
+    Values are picked from the upper end of the evacuation tier's training
+    distribution (matches Phase 7's evacuation loop output ranges) so the
+    RF v2 model classifies the reading as "evacuation" with high confidence.
+    DETERMINISTIC across ticks (no Gaussian noise) so the de-dup test can
+    confirm exactly 1 AlertEvent fires for N consecutive forced ticks of the
+    same zone.
+
+    This function is gated by FORCE_EVAC_ZONE env var inside step_zone() and
+    is OFF by default. Strip or unset before the final demo build.
+    """
+    t = state.current_t
+    return SensorReading(
+        sensor_id=f"SNS-{state.zone_id}-01",
+        zone_id=state.zone_id,
+        timestamp=f"{sim_dates[t]}T00:00:00Z",
+        displacement_mm_day=240.0,   # > 120 mm/day threshold (evac)
+        vibration=0.850,
+        pore_pressure=230.0,
+        strain=1400.0,
+        rainfall_mm=round(float(rain_val), 2),
+        risk_level=RiskLevel("evacuation"),
+    )
+
+
 def step_zone(
     state: ZoneGeneratorState,
     api_norm: np.ndarray,
@@ -311,7 +345,27 @@ def step_zone(
 
     The returned timestamp is the SIMULATED date from rainfall.csv at index t.
     See module docstring for why wall-clock time must NOT be used here.
+
+    Debug override (Phase 26 manual test only):
+        If the env var FORCE_EVAC_ZONE is set to a comma-separated list of
+        zone_ids (e.g. "zone_01" or "zone_01,zone_02"), any matching zone
+        bypasses its normal physics and returns a deterministic evacuation-tier
+        SensorReading instead. This is OFF by default and exists solely to
+        force the alert-crossing path during integration testing without
+        waiting for an organic Fukuzono tertiary-creep event. Strip or
+        leave unset before the final demo build.
     """
+    # -----------------------------------------------------------------------
+    # Phase 26 debug override -- force-evac zone(s) for manual integration test.
+    # OFF by default. Set FORCE_EVAC_ZONE="zone_01" (or comma-separated list)
+    # to force those zones to return evacuation-class readings on every tick.
+    # -----------------------------------------------------------------------
+    _force_evac_raw = os.getenv("FORCE_EVAC_ZONE", "").strip()
+    if _force_evac_raw:
+        _force_evac_zones = {z.strip() for z in _force_evac_raw.split(",") if z.strip()}
+        if state.zone_id in _force_evac_zones:
+            return _forced_evacuation_reading(state, sim_dates, float(rainfall_values[state.current_t]))
+
     t = state.current_t
     rng = state.rng
     rain_val = float(rainfall_values[t])

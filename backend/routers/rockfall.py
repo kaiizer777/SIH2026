@@ -33,6 +33,7 @@ Phase 21 additions:
 
 import asyncio
 import logging
+import os
 from datetime import datetime, timezone
 import json
 from typing import Literal
@@ -369,11 +370,18 @@ async def broadcast_sensor_feed_loop(app, interval_seconds: float = 2.5) -> None
 
     while True:
         try:
-            # --- Pick zone (round-robin) ---
-            zone_ids: list[str] = ZONE_IDS
-            cursor: int = app.state.zone_tick_cursor % len(zone_ids)
-            zone_id: str = zone_ids[cursor]
-            app.state.zone_tick_cursor = cursor + 1
+            # --- Pick zone (round-robin, or single-zone if test override set) ---
+            _force_zone_id = os.getenv("BROADCAST_FORCE_ZONE_ID", "").strip()
+            if _force_zone_id:
+                # Test override: restrict round-robin to one zone. Used by the
+                # Phase 26 de-dup test to verify 5+ consecutive forced ticks
+                # of the same zone produce exactly 1 alert. OFF by default.
+                zone_id: str = _force_zone_id
+            else:
+                zone_ids: list[str] = ZONE_IDS
+                cursor: int = app.state.zone_tick_cursor % len(zone_ids)
+                zone_id: str = zone_ids[cursor]
+                app.state.zone_tick_cursor = cursor + 1
 
             # --- Advance physics state (always, regardless of client count) ---
             state = app.state.zone_generator_state[zone_id]
