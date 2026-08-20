@@ -4,6 +4,8 @@
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI%200.141-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Frontend-Next.js%2016-000000?style=flat-square&logo=nextdotjs)](https://nextjs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![Docker Backend](https://img.shields.io/docker/v/kaizer777/sih2026-backend?label=Docker%20Backend&logo=docker&style=flat-square)](https://hub.docker.com/r/kaizer777/sih2026-backend)
+[![Docker Frontend](https://img.shields.io/docker/v/kaizer777/sih2026-frontend?label=Docker%20Frontend&logo=docker&style=flat-square)](https://hub.docker.com/r/kaizer777/sih2026-frontend)
 
 An end-to-end geotechnical surveillance and early-warning platform designed for open-pit mines. The system fuses multi-modal environmental, spatial, and sensor telemetry into physics-grounded machine learning models to forecast slope instability and trigger sub-minute evacuation alerts.
 
@@ -81,6 +83,7 @@ XGBoost is the production champion (zero missed evacuations). RF ships on the li
 | **Backend API** | FastAPI 0.141, Python 3.12, Uvicorn, WebSockets |
 | **ML & Inference** | Scikit-learn, XGBoost, PyTorch (GRU), ONNX Runtime, SHAP |
 | **Deployment** | Vercel (Frontend) + Render (Backend) |
+| **Containerisation** | Docker + Docker Compose · Images on [Docker Hub (`kaizer777`)](https://hub.docker.com/u/kaizer777) |
 
 ---
 
@@ -112,7 +115,36 @@ SIH2026/
 
 ## Quick Start
 
-### 1. Backend (FastAPI)
+### 🐳 Docker (recommended — zero setup)
+
+```bash
+# 1. Copy and fill in env vars (add your GROQ_API_KEY)
+cp .env.docker.example .env.docker
+
+# 2. Build and start both services
+docker compose up --build
+```
+
+| Service | URL |
+|:---|:---|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8001 |
+| API Docs | http://localhost:8001/docs |
+
+Or pull pre-built images directly:
+
+```bash
+docker pull kaizer777/sih2026-backend:latest
+docker pull kaizer777/sih2026-frontend:latest
+```
+
+> **Note:** `models/` and `data/` are mounted from the repo root at runtime — clone the full repo before running.
+
+---
+
+### Manual Setup
+
+#### 1. Backend (FastAPI)
 
 ```bash
 cd backend
@@ -130,7 +162,7 @@ uvicorn main:app --reload --port 8000
 ```
 > API Docs at `http://localhost:8000/docs`
 
-### 2. Frontend (Next.js)
+#### 2. Frontend (Next.js)
 
 ```bash
 cd frontend

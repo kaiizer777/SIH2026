@@ -1,0 +1,57 @@
+# docker-compose.yml — SIH2026
+# ─────────────────────────────────────────────────────────────────────────────
+# Usage:
+#   cp .env.docker .env          # fill in GROQ_API_KEY
+#   docker compose up --build
+#
+# Services:
+#   backend  → FastAPI  @ http://localhost:8001
+#   frontend → Next.js  @ http://localhost:3000
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: sih2026-backend
+    container_name: sih2026-backend
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env.docker          # FRONTEND_ORIGIN, BROADCAST_INTERVAL_SECONDS, etc.
+    environment:
+      FRONTEND_ORIGIN: "http://localhost:3000"
+    volumes:
+      # main.py resolves: _REPO_ROOT = /app's parent = /
+      # so MODEL_PATH = /models/... and ZONE_FEATURES_PATH = /data/...
+      - ./models:/models:ro
+      - ./data:/data:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* are baked at build time — point at backend service name
+        # for browser requests these resolve via the HOST machine's port mapping.
+        NEXT_PUBLIC_API_URL: "http://localhost:8001"
+        NEXT_PUBLIC_WS_URL: "ws://localhost:8001/ws/feed"
+    image: sih2026-frontend
+    container_name: sih2026-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.docker          # GROQ_API_KEY (server-side only)
+    depends_on:
+      backend:
+        condition: service_healthy
+

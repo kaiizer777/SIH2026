@@ -1,0 +1,15 @@
+# frontend/.dockerignore
+node_modules/
+.next/
+out/
+.env.local
+.env.*.local
+
+# Test artifacts
+test-results/
+*.log
+.dev.log
+.pitch-*.txt
+
+# TS build cache (rebuilt inside Docker)
+tsconfig.tsbuildinfo

@@ -29,8 +29,10 @@ frontend/.env.*.local
 backend/.env
 .env
 .env.local
+.env.docker
 !.env.example
 !.env*.example
+!.env.docker.example
 
 # Logs & Test Output
 *.log

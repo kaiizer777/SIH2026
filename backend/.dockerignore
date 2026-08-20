@@ -1,0 +1,22 @@
+# backend/.dockerignore
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+
+# These are mounted as volumes at runtime — don't bake into the image
+# (they live at repo root, not backend/, so they won't be included anyway,
+#  but keep this explicit for clarity)
+# ../models  ← outside build context, already excluded
+# ../data    ← outside build context, already excluded
+
+# Test / dev cruft
+tests/
+scripts/
+verify_phase25.py
+*.log
