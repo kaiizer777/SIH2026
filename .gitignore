@@ -57,7 +57,12 @@ Thumbs.db
 # Internal Docs & Workflows
 docs/WORKFLOW.md
 docs/workflow.md
+docs/session-done-*.md
 docs/session-done-02.md
+docs/session-done-03.md
+session-done-*.md
+session-done-02.md
+session-done-03.md
 WORKFLOW.md
 workflow.md
 WORK.md
@@ -65,4 +70,3 @@ work.md
 frontend.md
 FRONTEND.md
 AGENTS.md
-session-done-02.md
