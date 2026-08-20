@@ -138,18 +138,18 @@ async def predict(reading: SensorReading, request: Request):
 
 ---
 
-## Phase 23 — Render Deployment (start now, not Day 7)
-**Target: Day 5–6, 2–3 hrs. Deploy early on purpose — this is a known failure point if left late.**
+## Phase 23 — Render Deployment `[DONE ✅ 2026-08-20]`
+**Target: Day 5–6, 2–3 hrs. Live URL: `https://sih2026-xk4z.onrender.com`**
 
 ⚠️ **Correction — Render's free tier sleeps after 15 min idle, causing a 30–60s cold start on the next request.** This directly threatens your live demo: if the backend hasn't received traffic in the last 15 minutes before you present, the judges' first request (or your dashboard's first WebSocket connect) will hang for up to a minute looking exactly like a broken deploy. Plan around this explicitly — see the demo-day mitigation below, don't discover it live.
 
-- [ ] `requirements.txt` must be complete and pinned — Render's build command is `pip install -r requirements.txt`, nothing more. Test this in a clean venv locally before pushing (`python -m venv fresh-test && pip install -r requirements.txt`) to catch anything you have installed locally but forgot to freeze.
-- [ ] Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT` — **`$PORT` must stay the literal environment variable, not a hardcoded port number.** Render assigns the port dynamically; a hardcoded port produces a "no open ports detected" failure that looks like a code bug but is actually a config bug.
-- [ ] Pin Python version explicitly (`runtime.txt` with `python-3.12.x` or Render's environment settings) — don't let Render pick a default that may not match the 3.12 you've developed and tested against; a version mismatch is exactly the kind of thing WORKFLOW.md's Day 4-6 section already warned you to surface early.
-- [ ] Model artifacts (`models/*.joblib`, `models/*.json`) and `data/zone_features.csv` must be committed to the repo (or otherwise available at deploy time) — Render's build only runs `pip install`, it doesn't run your data pipeline. If these files aren't in git, the deployed `lifespan` startup will crash on `joblib.load()`, and per Phase 20's fail-fast design, the whole service won't start. Verify these files are tracked (`git status` / `.gitignore` check) before the first deploy attempt.
-- [ ] Environment variables (if any — GEE credentials are NOT needed at runtime since your geospatial pipeline is a Day 1-2 offline step whose *output* is the checked-in CSV, not a live dependency) — confirm nothing in the real `/predict` path tries to re-authenticate to GEE at request time. It shouldn't, per your architecture, but verify.
-- [ ] After first successful deploy: test the actual `.onrender.com` URL from a browser/curl, not just "build succeeded" in the Render dashboard. A clean build with a broken runtime path is a common false-positive.
-- [ ] **Demo-day mitigation for the cold-start issue**: ping the deployed `/predict` or a lightweight health-check endpoint yourself 2-3 minutes before you go on stage/present, so the instance is warm when judges interact with it. Consider adding a trivial `GET /health` endpoint now if you don't have one — cheap to build, useful both for this and for Phase 24's integration test.
+- [x] `requirements.txt` must be complete and pinned — Render's build command is `pip install -r requirements.txt`, verified in a clean Python 3.12 venv locally before deploying.
+- [x] Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT` — `$PORT` passed as environment variable dynamically at runtime.
+- [x] Pin Python version explicitly (`runtime.txt` pinned to `python-3.12.0`).
+- [x] Model artifacts (`models/*.joblib`, `models/*.json`), `data/zone_features.csv`, and `data/rainfall.csv` committed and tracked in git.
+- [x] Confirmed zero runtime GEE calls in `/predict` or lifespan.
+- [x] Deployed and verified live `.onrender.com` URL (`https://sih2026-xk4z.onrender.com/health` returns 200, `/predict` returns 200, `wss://.../ws/feed` stream verified).
+- [x] **Demo-day mitigation for the cold-start issue**: ping `GET /health` or `GET /` 2-3 minutes before presentation to warm the instance.
 
 ---
 
