@@ -1,0 +1,287 @@
+PITCH Z — Quick-Fire Cheat Sheet (Non-Technical Teammate Edition)
+===================================================================
+
+34 questions. Every answer is under 100 words. Memorise the bold numbers.
+
+
+SECTION A — Problem & Why It Matters
+-------------------------------------
+
+Q1: What is rockfall and why is it deadly in open-pit mining?
+A:
+- Rockfall is the sudden detachment of rock boulders from open-pit mine walls
+- Mine benches are 10-15 meters tall with steep 60-75 degree angles — gravity does the rest
+- A single collapse can bury haul trucks, destroy shovels, and kill workers instantly
+- Deeper mines mean higher walls and greater gravitational force on unstable rock faces
+
+Q2: What happened at Kusmunda mine and why is it our reference site?
+A:
+- Kusmunda is one of India's largest opencast coal mines in Korba, Chhattisgarh, operated by SECL
+- It runs a deep multi-bench pit over 200 meters deep
+- It produces a huge share of SECL's 150+ million tonnes of coal annually
+- Its scale, depth, and active slope instability make it the ideal real-world testbed for our system
+
+Q3: How dangerous are rockfalls in Indian mines?
+A:
+- DGMS data ranks slope instability among the top 3 causes of open-pit mining deaths in India
+- A single bench collapse can damage shovels and draglines worth 10-50 crore rupees
+- India's 1-billion-tonne coal target is forcing mines to dig deeper, increasing slope failure risk
+- Every metre of added depth multiplies the gravitational load on unstable rock faces
+
+Q4: What is SSR and why is it the gold standard?
+A:
+- SSR (Slope Stability Radar) is ground-based radar that scans pit walls with sub-millimetre precision
+- It established the industry thresholds: Safe (0-50 mm/day), Warning (50-120 mm/day), Evacuation (>120 mm/day)
+- It provides continuous, real-time deformation monitoring of scanned surfaces
+- It is the gold standard — but only for the walls it can actually see
+
+Q5: What is the cost problem with SSR?
+A:
+- A single SSR unit costs 2-4 crore rupees ($250k-$500k USD)
+- Annual maintenance adds 10-15% of the purchase cost on top
+- Full pit perimeter coverage requires 4-6 units, totalling 12-30 crore rupees
+- Most Indian mines cannot justify or afford this for every active face
+
+Q6: What is SSR's line-of-sight limitation?
+A:
+- SSR requires unobstructed direct line of sight to the wall it monitors
+- Benches, corners, stockpiles, and haul trucks create permanent shadow zones
+- Even with 4-6 units, 20-40% of the pit perimeter remains unmonitored
+- These blind spots are often the most geologically unstable sections of the wall
+
+Q7: What is the cost of inaction when mines operate without monitoring?
+A:
+- A fatal slope failure triggers a mandatory 30-day DGMS shutdown costing 150-450 crore rupees in lost coal production (5-15 crore/day)
+- Destroyed heavy machinery (draglines, hydraulic shovels) runs 15-120 crore rupees per unit
+- Total incident losses frequently exceed 500 crore rupees per event
+- Beyond economics, every incident risks irreplaceable worker lives — a cost no balance sheet captures
+
+Q8: Who benefits from our system?
+A:
+- 200+ Indian opencast coal mines under Coal India (CIL) and private miners need affordable slope monitoring
+- Global mines in Asia, Africa, and South America face identical cost and coverage gaps
+- Regulators like DGMS gain a digital oversight layer for enforcement
+- Insurers get quantified risk data to price policies accurately
+
+
+SECTION B — What We Built
+--------------------------
+
+Q9: Walk me through the system end-to-end. How does data flow from sensors to the dashboard?
+A:
+- Four data streams feed in: geotechnical sensors, Sentinel-1 SAR satellite radar, Copernicus elevation data, and Open-Meteo rainfall
+- FastAPI backend (Python 3.12) formats every stream through Pydantic schemas and builds a 10-feature vector per zone
+- ML engine consumes the vector and outputs a RiskPrediction: Safe, Warning, or Evacuation
+- Results stream over a persistent WebSocket connection to the Next.js frontend in under 2.5 seconds
+
+Q10: What are the 10 features your model uses?
+A:
+- displacement_mm_day — daily slope movement speed
+- vibration — microseismic tremor intensity
+- pore_pressure — groundwater pressure in kPa
+- strain — microstrain deformation reading
+- slope — hillside angle in degrees
+- aspect — compass direction slope faces
+- curvature — concavity or convexity of terrain
+- vv_backscatter — radar surface roughness signal
+- vh_backscatter — radar structural volume signal
+- rainfall_mm — daily precipitation amount
+
+Q11: What is the 4x4 zone grid and why 16 zones?
+A:
+- The Kusmunda open-pit mine spans 4.8 km — too large to monitor as one unit
+- We divide it into a 4x4 grid: 16 zones, each roughly 300m x 300m
+- 16 zones balances spatial detail against Sentinel-1's 10-metre pixel resolution
+- Dataset: 5,696 data points across 356 days
+- Distribution: 10 Low-risk zones (62.5%), 4 Medium (25%), 2 High (12.5%)
+
+Q12: Where does your data actually come from?
+A:
+- Copernicus GLO-30 DEM via Google Earth Engine — 30-metre resolution elevation model for slope, aspect, and curvature
+- Sentinel-1 GRD C-band SAR — descending track, VV and VH polarisations, 30 observation dates for radar backscatter
+- Open-Meteo ERA5 reanalysis — 356 daily rainfall records for the Kusmunda region
+- Synthetic sensors — physics-based generator for displacement, vibration, pore pressure, and strain
+
+Q13: Why synthetic sensor data — how is this credible?
+A:
+- Active open-pit mines do not grant real-time IoT feeds to hackathon teams; DEM, Sentinel-1 SAR, and ERA5 rainfall are 100% real
+- Sensor simulation uses the Fukuzono (1985) inverse-velocity physics model for authentic landslide acceleration curves
+- Inter-sensor correlations match published geotechnical literature: pore pressure r=0.918, strain r=0.968
+- Calibrated against 4 external benchmarks: Landslide4Sense, NASA GLC, Dorren et al., and DGMS safety records; model is data-agnostic
+
+Q14: What is the Fukuzono method — explain it like I'm not an engineer?
+A:
+- When a slope is stable, it moves slowly — millimetres per day
+- As it approaches failure, movement accelerates. Think of a car rolling downhill faster and faster
+- Fukuzono's trick: instead of tracking speed (v), track the inverse of speed (1/v). As failure nears, 1/v drops in a straight line toward zero
+- Where that line hits zero on the time axis = predicted failure date
+- Our formula: v = 25.0 / (time-to-failure)^0.25. Peak failure predicted at day 338 (25 July 2026)
+
+Q15: What does the live demo actually look like technically?
+A:
+- Backend: FastAPI on Render (Python 3.12), serves ML predictions and hosts WebSocket endpoint at /ws/feed
+- Frontend: Next.js 16 on Vercel, connects via persistent WebSocket — no polling, no page reloads
+- Broadcast cadence: one zone updates every 2.5 seconds. Full cycle through all 16 zones = 40 seconds
+- Latency: sensor-to-screen under 2.5 seconds per update
+- Zero paid APIs, zero proprietary dependencies — fully open-source stack
+
+Q16: What does the MapLibre dashboard actually show?
+A:
+- A 3D terrain model of the Kusmunda mine pit rendered with MapLibre GL — 100% open-source, no API keys
+- The 4x4 zone grid overlays as GeoJSON polygons colour-coded by risk: green = Safe, amber = Warning, red = Evacuation
+- Users can tilt, rotate, and zoom the 3D view with mouse controls
+- Each zone displays its current risk label and key sensor readings on hover
+- Updates in real-time as new predictions arrive over WebSocket
+
+Q17: How does the alert system decide when to fire?
+A:
+- Safe-to-Warning fires a "warning" alert. Warning-to-Evacuation fires "evacuation." Safe-to-Evacuation fires "evacuation"
+- De-duplication: if a zone stays in the same state, the alert is suppressed — no spam
+- Downgrades: Evacuation-to-Warning fires an "advisory" so operators know the situation is improving
+- Every AlertEvent carries: zone_id, severity, human-readable message, and ISO timestamp
+- This prevents alert fatigue — only meaningful state transitions reach the operator
+
+
+SECTION C — ML & Model Performance
+------------------------------------
+
+Q18: What does our model actually predict?
+A:
+- Three risk levels based on slope displacement rate (millimetres per day)
+- Safe (0-50 mm/day): movement within normal geological creep; no action required
+- Warning (50-120 mm/day): accelerated movement; increased monitoring, prepare contingency plans
+- Evacuation (>120 mm/day): critical threshold breached; immediate personnel evacuation
+- Thresholds derived from an Indonesian open-pit coal mine SSR case study (peer-reviewed)
+
+Q19: Why is accuracy misleading and what if the model predicts "Safe" all the time?
+A:
+- With 61% safe, 26% warning, and 13% evacuation, a dummy model predicting "Safe" achieves ~61% accuracy but misses 100% of evacuations
+- Accuracy masks severe class imbalance; we reject raw accuracy and optimize for minority-class Recall, Precision, and F1
+- XGBoost achieved 100% recall (0 missed / 197 events) with 97.04% precision
+- Random Forest achieved 98.48% recall (only 3 missed / 197) with 99.49% precision — avoiding false alarms while catching critical events
+
+Q20: How do the three models compare?
+A:
+- Tested on 1,136 sequences; metrics shown for the Evacuation class:
+
+  Model     | Precision | Recall  | F1     | Missed Evacuations
+  ----------|-----------|---------|--------|--------------------
+  RF        | 0.9949    | 0.9848  | 0.9898 | 3 / 197
+  XGBoost   | 0.9704    | 1.0000  | 0.9850 | 0 / 197
+  GRU       | 1.0000    | 0.7208  | 0.8378 | 55 / 197
+
+- RF and XGBoost are tree-based ensemble models; GRU is a recurrent neural network for sequential data
+
+Q21: Why did we choose RF over XGBoost as the production model?
+A:
+- Best F1 balance: 0.9898 with only 3 missed evacuations out of 197 (1.5% miss rate)
+- Superior precision (0.9949 vs XGBoost's 0.9704) — prevents operator alert fatigue caused by XGBoost's ~3% false alarms
+- Strongest contextual learning: terrain/SAR SHAP contribution is 17.03% in RF vs only 6.90% in XGBoost
+- Fast CPU inference: ~1 ms per prediction — runs effortlessly on low-power edge hardware without GPU
+
+Q22: What is SHAP and what does the 17.03% terrain/SAR contribution prove?
+A:
+- SHAP breaks down individual predictions into exact percentage contributions per feature
+- Slope, aspect, curvature, and SAR backscatter account for 17.03% of prediction magnitude in RF (vs 6.90% in XGBoost)
+- This proves the model is learning real terrain physics rather than acting as a simple displacement threshold lookup
+- Direct validation of our multi-modal data fusion architecture
+
+Q23: What was the v1 to v2 label fix and what are crossover pairs?
+A:
+- v1: labels depended solely on displacement, so the model ignored terrain and SAR features entirely
+- v2: introduced risk_score = displacement x susceptibility_multiplier (0.70-1.30), factoring slope steepness into risk labels
+- Created 75 crossover pairs — cases with identical displacement but different risk levels based on terrain susceptibility
+- Result: RF terrain/SAR SHAP contribution jumped from 12.27% to 18.63% on validation, forcing the model to learn geological context
+
+Q24: Why class weighting over SMOTE?
+A:
+- Sensor channels are physically correlated by construction — synthetic interpolation (SMOTE) risks creating physically impossible sensor states
+- Class-weighted loss upweights evacuation samples by ~5.4x during training, keeping every training sample physically grounded
+- Forces the loss function to heavily penalise missed evacuations without fabricating synthetic data
+
+Q25: What is a temporal split and why not random?
+A:
+- Data split chronologically with a hard cutoff at 2026-06-03: Train (4,560 rows) vs Test (1,136 rows)
+- Random splitting leaks future temporal curves into training, letting models memorise trajectory shapes
+- Temporal split strictly replicates real deployment: predicting future risk from past observations
+
+
+SECTION D — Deployment & Edge
+-------------------------------
+
+Q26: Where is the system deployed?
+A:
+- Next.js 16 frontend on Vercel — live at https://sih-2026-drab.vercel.app
+- FastAPI backend on Render — live at https://sih2026-xk4z.onrender.com
+- Auto-deploys on every push to main with zero manual CI overhead
+- Production-grade public URLs ready for instant live demonstration
+
+Q27: Can this work offline at a remote mine with no internet?
+A:
+- Yes — Raspberry Pi or Jetson runs ONNX Runtime inference locally on ARM CPUs with ~1 ms latency
+- Directly triggers physical sirens, flashing strobes via GPIO, and emergency GSM SMS alerts over UART
+- Buffers sensor logs locally during outages and backfills the cloud dashboard once connectivity returns
+- Life-safety critical loops remain 100% operational without cloud or internet dependence
+
+Q28: How much work is it to onboard a new mine?
+A:
+- Change the geographic bounding box in aoi.json — that is the only config edit
+- The 10-feature schema is mine-agnostic; no code rewrite needed
+- Satellite pipelines auto-pull Copernicus DEM and Sentinel-1 SAR for the new location
+- Zone grid scales from 4x4 to 8x8 to 16x16 by updating one parameter
+- Onboarding is a configuration change, not a software project
+
+
+SECTION E — Innovation & Social Impact
+----------------------------------------
+
+Q29: What makes your system different from existing slope stability solutions?
+A:
+- First system to fuse geotechnical sensors with Sentinel-1 SAR radar, Copernicus DEM elevation, and Open-Meteo rainfall
+- Traditional SSR costs $250k-$500k per unit and monitors only a single line-of-sight face
+- Our model evaluates 10 multi-modal features simultaneously across all 16 mine zones
+- Operates on commodity hardware at orders of magnitude lower cost than dedicated radar units
+
+Q30: How does this align with the UN Sustainable Development Goals?
+A:
+- SDG 8 (Decent Work & Economic Growth) — protects opencast mining crews from fatal rockfall events
+- SDG 9 (Industry, Innovation & Infrastructure) — introduces low-cost AI and satellite data fusion to mining
+- SDG 11 (Sustainable Cities & Communities) — methodology transfers directly to hillside urban landslide zones like Darjeeling and Nilgiris
+- SDG 13 (Climate Action) — integrates real-time precipitation data to mitigate monsoon-driven slope failures
+
+Q31: Why is this problem especially urgent for India right now?
+A:
+- India targets 1-billion-tonne coal production, forcing mines to dig deeper and steepen slopes — directly increasing collapse risk
+- DGMS mandates continuous slope stability monitoring, but most mines lack affordable tools to comply
+- SIH25071 is an official Ministry of Mines problem statement — government-validated demand
+- DMFT and PMKKKY funds (1 lakh crore corpus) provide direct funding pathways for mines to adopt monitoring technology
+- Over 200 opencast mines under Coal India alone need affordable, scalable slope monitoring
+
+Q32: Does this system replace SSR, or work alongside it?
+A:
+- Complements SSR — does not replace it. SSR provides gold-standard sub-mm precision on a single designated highwall face
+- Our system provides area-wide situational awareness across all 16 mine zones simultaneously
+- Fuses surface deformation, groundwater pore pressure, and real-time rainfall — data dimensions SSR alone does not capture
+- For the price of one SSR unit, a mine gets comprehensive multi-zone coverage that extends the safety perimeter
+
+
+SECTION F — Judge Defense Questions
+-------------------------------------
+
+Q33: "Why not use InSAR for deformation monitoring?"
+A:
+- We use Sentinel-1 GRD amplitude backscatter, not phase-based interferometry (InSAR)
+- InSAR requires precise co-registration, complex atmospheric correction, and suffers severe decorrelation in steep open pits
+- GRD backscatter shifts serve as a direct proxy for surface moisture and rock roughness changes
+- GRD is terrain-corrected, analysis-ready, and lightweight — one reliable feature among 10 in our fusion pipeline
+
+Q34: "What's the alert lead time before a collapse?"
+A:
+- Ingestion-to-screen alert latency is under 2.5 seconds over live WebSockets (sub-millisecond locally on edge)
+- Catches pre-failure acceleration hours before collapse during the Fukuzono tertiary creep phase
+- Literature benchmark: IEEE CNN-LSTM early-warning models target ~30-minute mean lead times
+- Edge GPIO triggers sirens and strobes instantly without network latency bottlenecks
+
+-------------------------------------------------------------------
+This cheat-sheet is for non-technical teammates. For deep technical
+detail, see pitch-01 through pitch-07 and CONTEXT.md.

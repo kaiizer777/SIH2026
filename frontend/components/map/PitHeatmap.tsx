@@ -179,6 +179,30 @@ export default function PitHeatmap({
   const [wsStatus, setWsStatus] = useState<'connecting' | 'open' | 'closed' | 'error'>('connecting');
   const [selectedZone, setSelectedZone] = useState<PitZoneRisk | null>(null);
   const [cursor, setCursor] = useState<string>('auto');
+  const [workerReady, setWorkerReady] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Dynamic import of maplibre-gl to call setWorkerUrl. This pins the
+    // worker URL to our /public copy so the browser doesn't try to resolve
+    // import.meta.url inside node_modules (which 404s).
+    //
+    // The build must use the webpack bundler (see next.config.ts) — Turbopack
+    // build cannot analyze maplibre-gl's `new URL(e, import.meta.url)` Blob
+    // fallback. Dev mode (Turbopack) is more lenient and works fine.
+    import('maplibre-gl')
+      .then(({ setWorkerUrl }) => {
+        setWorkerUrl('/maplibre-gl-worker.mjs');
+      })
+      .catch((err) => {
+        // If the dynamic import fails for any reason, still unblock the Map
+        // render so the UI doesn't stay blank. The map will fall back to its
+        // default worker URL.
+        console.error('[PitHeatmap] Failed to configure maplibre worker URL:', err);
+      })
+      .finally(() => {
+        setWorkerReady(true);
+      });
+  }, []);
 
   useEffect(() => {
     const wsClient = new SensorWebSocketClient();
@@ -373,6 +397,7 @@ export default function PitHeatmap({
 
   return (
     <div className="relative w-full h-[520px] rounded-2xl overflow-hidden border border-[#E6E8EE] bg-[#F8FAFC] shadow-sm">
+      {workerReady && (
       <Map
         initialViewState={{
           longitude: center.longitude,
@@ -452,6 +477,7 @@ export default function PitHeatmap({
           </Popup>
         )}
       </Map>
+      )}
 
       {/* Top Left Feed Status Badge */}
       <div className="absolute top-4 left-4 flex items-center gap-2 bg-white/95 backdrop-blur-md border border-[#E6E8EE] px-3 py-1.5 rounded-full text-xs font-mono shadow-sm">
